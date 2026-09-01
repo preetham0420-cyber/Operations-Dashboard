@@ -1,0 +1,154 @@
+/**
+ * GOD'S EYE SECURITY FORCE (GESF)
+ * Design Tokens & Theme Variables
+ * Defense / SOC Tactical Aesthetics
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+:root {
+  /* Fonts */
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Spacing Scale */
+  --space-1: 0.25rem;  /* 4px */
+  --space-2: 0.5rem;   /* 8px */
+  --space-3: 0.75rem;  /* 12px */
+  --space-4: 1rem;     /* 16px */
+  --space-5: 1.25rem;  /* 20px */
+  --space-6: 1.5rem;   /* 24px */
+  --space-8: 2rem;     /* 32px */
+  --space-10: 2.5rem;  /* 40px */
+  --space-12: 3rem;    /* 48px */
+
+  /* Border Radii */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* Typography Scale */
+  --text-xs: 0.75rem;    /* 12px */
+  --text-sm: 0.84rem;    /* 13.5px */
+  --text-base: 0.95rem;  /* 15.2px */
+  --text-md: 1.05rem;    /* 16.8px */
+  --text-lg: 1.2rem;     /* 19.2px */
+  --text-xl: 1.45rem;    /* 23.2px */
+  --text-2xl: 1.85rem;   /* 29.6px */
+  --text-3xl: 2.25rem;   /* 36px */
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 350ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Layout Dimensions */
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 72px;
+  --topbar-height: 64px;
+  --mobile-bar-height: 64px;
+}
+
+/* ==========================================================================
+   DARK THEME (Default Tactical Security Operations Mode)
+   ========================================================================== */
+:root, [data-theme="dark"] {
+  --color-bg-base: #07090E;
+  --color-bg-surface: #0D111A;
+  --color-bg-surface-raised: #131A27;
+  --color-bg-surface-elevated: #1A2334;
+  --color-bg-glass: rgba(13, 17, 26, 0.82);
+  --color-bg-glass-subtle: rgba(19, 26, 39, 0.65);
+
+  --color-border-subtle: rgba(255, 255, 255, 0.07);
+  --color-border-medium: rgba(255, 255, 255, 0.14);
+  --color-border-focus: #00F0FF;
+
+  --color-text-primary: #F1F5F9;
+  --color-text-secondary: #94A3B8;
+  --color-text-muted: #64748B;
+  --color-text-inverse: #07090E;
+
+  /* Tactical Accents */
+  --color-cyan: #00F0FF;
+  --color-cyan-glow: rgba(0, 240, 255, 0.25);
+  --color-cyan-bg: rgba(0, 240, 255, 0.1);
+  
+  --color-blue: #38BDF8;
+  --color-blue-bg: rgba(56, 189, 248, 0.12);
+
+  --color-red: #EF4444;
+  --color-red-glow: rgba(239, 68, 68, 0.3);
+  --color-red-bg: rgba(239, 68, 68, 0.12);
+
+  --color-amber: #F59E0B;
+  --color-amber-glow: rgba(245, 158, 11, 0.25);
+  --color-amber-bg: rgba(245, 158, 11, 0.12);
+
+  --color-emerald: #10B981;
+  --color-emerald-glow: rgba(16, 185, 129, 0.25);
+  --color-emerald-bg: rgba(16, 185, 129, 0.12);
+
+  --color-purple: #A855F7;
+  --color-purple-bg: rgba(168, 85, 247, 0.12);
+
+  /* Elevation Shadows */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --shadow-glow-cyan: 0 0 20px rgba(0, 240, 255, 0.25);
+  --shadow-glow-red: 0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+/* ==========================================================================
+   LIGHT THEME (High-Contrast Audit & Command Mode)
+   ========================================================================== */
+[data-theme="light"] {
+  --color-bg-base: #F8FAFC;
+  --color-bg-surface: #FFFFFF;
+  --color-bg-surface-raised: #F1F5F9;
+  --color-bg-surface-elevated: #E2E8F0;
+  --color-bg-glass: rgba(255, 255, 255, 0.88);
+  --color-bg-glass-subtle: rgba(241, 245, 249, 0.8);
+
+  --color-border-subtle: rgba(0, 0, 0, 0.08);
+  --color-border-medium: rgba(0, 0, 0, 0.15);
+  --color-border-focus: #0284C7;
+
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748B;
+  --color-text-inverse: #FFFFFF;
+
+  /* Tactical Accents - Adjusted for high contrast on light bg */
+  --color-cyan: #0284C7;
+  --color-cyan-glow: rgba(2, 132, 199, 0.2);
+  --color-cyan-bg: rgba(2, 132, 199, 0.1);
+
+  --color-blue: #2563EB;
+  --color-blue-bg: rgba(37, 99, 235, 0.1);
+
+  --color-red: #DC2626;
+  --color-red-glow: rgba(220, 38, 38, 0.2);
+  --color-red-bg: rgba(220, 38, 38, 0.1);
+
+  --color-amber: #D97706;
+  --color-amber-glow: rgba(217, 119, 6, 0.2);
+  --color-amber-bg: rgba(217, 119, 6, 0.1);
+
+  --color-emerald: #059669;
+  --color-emerald-glow: rgba(5, 150, 105, 0.2);
+  --color-emerald-bg: rgba(5, 150, 105, 0.1);
+
+  --color-purple: #7C3AED;
+  --color-purple-bg: rgba(124, 58, 237, 0.1);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.08);
+  --shadow-glow-cyan: 0 0 15px rgba(2, 132, 199, 0.2);
+  --shadow-glow-red: 0 0 15px rgba(220, 38, 38, 0.2);
+}
