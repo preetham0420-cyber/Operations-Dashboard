@@ -45,7 +45,7 @@ class StateStore {
 
   init() {
     // Force reset if data version is outdated or contains legacy full names
-    const STORE_VERSION = 'ops_v6_simplified_tasks';
+    const STORE_VERSION = 'ops_v8_scoped_notifications';
     const currentVersion = localStorage.getItem('ops_data_version');
     const rawSavedTasks = localStorage.getItem('ops_tasks') || '';
 
@@ -548,11 +548,21 @@ class StateStore {
   // Notifications & Activity
   // -------------------------------------------------------------
   getNotifications() {
-    return this.notifications;
+    if (!this.currentUser) return [];
+    const userEmail = this.currentUser.email;
+    const isManager = this.isManager();
+
+    return this.notifications.filter(n => {
+      if (!n.recipient || n.recipient === 'all') return true;
+      if (n.recipient === userEmail) return true;
+      if (n.recipient === 'manager' && isManager) return true;
+      if (n.recipient === 'agent' && !isManager) return true;
+      return false;
+    });
   }
 
   getUnreadNotificationsCount() {
-    return this.notifications.filter(n => !n.read).length;
+    return this.getNotifications().filter(n => !n.read).length;
   }
 
   markNotificationAsRead(id) {
@@ -574,7 +584,8 @@ class StateStore {
   }
 
   markAllNotificationsAsRead() {
-    this.notifications.forEach(n => n.read = true);
+    const visible = this.getNotifications();
+    visible.forEach(n => n.read = true);
     this.saveNotifications();
     this.notify('NOTIFICATIONS_UPDATED', this.notifications);
   }
@@ -622,3 +633,4 @@ class StateStore {
 }
 
 export const store = new StateStore();
+
