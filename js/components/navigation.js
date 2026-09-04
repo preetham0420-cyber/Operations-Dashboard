@@ -156,7 +156,7 @@ class NavigationComponent {
         </nav>
 
         <div class="sidebar-footer">
-          <div class="sidebar-user-card" id="sidebar-profile-card">
+          <div class="sidebar-user-card" id="sidebar-profile-card" data-view="profile" style="cursor: pointer;" title="View Profile">
             <img class="sidebar-user-avatar" src="${user.avatar}" alt="${user.name}">
             <div class="sidebar-user-info">
               <span class="sidebar-user-name">${user.name}</span>
@@ -241,7 +241,7 @@ class NavigationComponent {
 
     const logoutBtn = document.getElementById('btn-sidebar-logout');
     if (logoutBtn) {
-      logoutBtn.onclick = () => {
+      logoutBtn.onclick = (e) => { e.stopPropagation();
         store.logout();
         toast.show({
           title: "Logged Out",
@@ -294,3 +294,4 @@ class NavigationComponent {
 }
 
 export const navigation = new NavigationComponent();
+
