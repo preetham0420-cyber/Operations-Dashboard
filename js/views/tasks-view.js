@@ -405,6 +405,16 @@ export function renderTasksView(container, initialFilters = {}) {
         render();
       };
     });
+
+    container.querySelectorAll('[data-task-inspect]').forEach(el => {
+      el.onclick = (e) => {
+        e.stopPropagation();
+        const taskId = el.getAttribute('data-task-inspect');
+        if (taskId) {
+          navigation.navigate('task-detail', { taskId });
+        }
+      };
+    });
   }
 
   render();
@@ -446,3 +456,4 @@ function formatDueDate(isoString) {
   const d = new Date(isoString);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
+

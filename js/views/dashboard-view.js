@@ -195,6 +195,17 @@ export function renderDashboardView(container) {
       modal.open('modal-create-task');
     };
   }
+
+  // Attach Urgent Task Inspect Listener
+  container.querySelectorAll('[data-task-inspect]').forEach(el => {
+    el.onclick = (e) => {
+      e.stopPropagation();
+      const taskId = el.getAttribute('data-task-inspect');
+      if (taskId) {
+        navigation.navigate('task-detail', { taskId });
+      }
+    };
+  });
 }
 
 function getPriorityBadgeClass(priority) {
@@ -232,3 +243,4 @@ function formatTimeAgo(isoString) {
   if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
   return `${Math.floor(diffSec / 86400)}d ago`;
 }
+
