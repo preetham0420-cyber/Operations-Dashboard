@@ -130,7 +130,7 @@ class NavigationComponent {
             ${activeTasksCount > 0 ? `<span class="nav-badge-count" id="sidebar-task-count">${activeTasksCount}</span>` : ''}
           </button>
 
-          <button class="nav-item" disabled style="opacity: 0.45; cursor: not-allowed;" title="Attendance & Shifts (Upcoming)">
+          <button class="nav-item ${this.currentView === 'attendance' ? 'active' : ''}" data-view="attendance" title="Attendance & Shifts">
             <span class="nav-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             </span>
@@ -184,7 +184,7 @@ class NavigationComponent {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           <span>Tasks</span>
         </button>
-        <button class="mobile-nav-item" disabled style="opacity: 0.45; cursor: not-allowed;">
+        <button class="mobile-nav-item ${this.currentView === 'attendance' ? 'active' : ''}" data-view="attendance">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span>Attendance</span>
         </button>
@@ -294,4 +294,5 @@ class NavigationComponent {
 }
 
 export const navigation = new NavigationComponent();
+
 
