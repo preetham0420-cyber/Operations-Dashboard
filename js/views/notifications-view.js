@@ -183,7 +183,7 @@ export function renderNotificationsView(container) {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const taskId = btn.getAttribute('data-task-id');
-        navigation.navigate('tasks', { search: taskId });
+        navigation.navigate('task-detail', { taskId });
       });
     });
   }

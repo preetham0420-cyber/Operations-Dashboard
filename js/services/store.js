@@ -300,6 +300,53 @@ class StateStore {
     return newTask;
   }
 
+  updateTaskProgress(taskId, progressVal) {
+    const task = this.getTaskById(taskId);
+    if (!task) return false;
+
+    const p = Math.min(100, Math.max(0, parseInt(progressVal, 10) || 0));
+    task.progress = p;
+
+    // Automatically synchronize status
+    if (p === 100) {
+      task.status = 'Resolved';
+    } else if (p > 0 && task.status === 'Open') {
+      task.status = 'In Progress';
+    } else if (p === 0 && (task.status === 'Resolved' || task.status === 'Closed')) {
+      task.status = 'Open';
+    }
+
+    if (!Array.isArray(task.timeline)) task.timeline = [];
+    const authorName = (this.currentUser && this.currentUser.name) ? this.currentUser.name : 'Operations Agent';
+    task.timeline.unshift({
+      id: `tl-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      author: authorName,
+      type: "action",
+      message: `Progress updated to ${p}%.`
+    });
+
+    this.saveTasks();
+    this.notify('TASK_UPDATED', task);
+
+    // Create notification for progress update
+    this.notifications.unshift({
+      id: `notif-${Date.now()}`,
+      title: `Progress Update: ${task.id} (${p}%)`,
+      message: `${authorName} updated progress to ${p}% (Status: ${task.status}).`,
+      timestamp: new Date().toISOString(),
+      type: p === 100 ? "success" : "info",
+      priority: p === 100 ? "High" : "Normal",
+      read: false,
+      taskId: task.id,
+      recipient: "all"
+    });
+    this.saveNotifications();
+    this.notify('NOTIFICATIONS_UPDATED', this.notifications);
+
+    return task;
+  }
+
   updateTaskStatus(taskId, newStatus) {
     const task = this.getTaskById(taskId);
     if (!task) return false;
@@ -307,29 +354,35 @@ class StateStore {
     const oldStatus = task.status;
     task.status = newStatus;
 
-    if (newStatus === 'Closed') {
+    if (newStatus === 'Closed' || newStatus === 'Resolved') {
       task.progress = 100;
-    } else if (newStatus === 'Ongoing' && (task.progress === 0 || task.progress === 100)) {
-      task.progress = 50;
+    } else if (newStatus === 'Under Review') {
+      task.progress = (task.progress === 100 || task.progress === 0) ? 80 : task.progress;
+    } else if (newStatus === 'Ongoing' || newStatus === 'In Progress') {
+      task.progress = (task.progress === 0 || task.progress === 100) ? 50 : task.progress;
     } else if (newStatus === 'Open') {
       task.progress = 0;
     }
 
+    if (!Array.isArray(task.timeline)) task.timeline = [];
+    const authorName = (this.currentUser && this.currentUser.name) ? this.currentUser.name : 'Operations Agent';
+    const authorAvatar = (this.currentUser && this.currentUser.avatar) ? this.currentUser.avatar : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+
     task.timeline.unshift({
       id: `tl-${Date.now()}`,
       timestamp: new Date().toISOString(),
-      author: this.currentUser.name,
+      author: authorName,
       type: "action",
       message: `Status updated from ${oldStatus} to ${newStatus}.`
     });
 
     this.saveTasks();
     this.addActivity({
-      user: this.currentUser.name,
+      user: authorName,
       action: "updated status to",
       target: newStatus,
       detail: `${task.id} (${task.title})`,
-      avatar: this.currentUser.avatar
+      avatar: authorAvatar
     });
     this.notify('TASK_UPDATED', task);
     return true;
@@ -339,12 +392,19 @@ class StateStore {
     const task = this.getTaskById(taskId);
     if (!task) return false;
 
+    if (!Array.isArray(task.comments)) task.comments = [];
+    if (!Array.isArray(task.timeline)) task.timeline = [];
+
+    const authorName = (this.currentUser && this.currentUser.name) ? this.currentUser.name : 'Operations Agent';
+    const authorAvatar = (this.currentUser && this.currentUser.avatar) ? this.currentUser.avatar : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+    const authorRole = (this.currentUser && this.currentUser.role) ? this.currentUser.role : 'Agent';
+
     const comment = {
       id: `c-${Date.now()}`,
-      author: this.currentUser.name,
-      avatar: this.currentUser.avatar,
+      author: authorName,
+      avatar: authorAvatar,
       timestamp: new Date().toISOString(),
-      role: this.currentUser.role,
+      role: authorRole,
       text: commentText
     };
 
@@ -352,13 +412,31 @@ class StateStore {
     task.timeline.unshift({
       id: `tl-${Date.now()}`,
       timestamp: new Date().toISOString(),
-      author: this.currentUser.name,
+      author: authorName,
       type: "comment",
       message: `Added a note: "${commentText.substring(0, 40)}${commentText.length > 40 ? '...' : ''}"`
     });
 
     this.saveTasks();
     this.notify('TASK_COMMENT_ADDED', { task, comment });
+    this.notify('TASK_UPDATED', task);
+
+    // Create notification for the comment so it reflects in Notifications Center
+    const preview = commentText.length > 55 ? commentText.substring(0, 52) + '...' : commentText;
+    this.notifications.unshift({
+      id: `notif-${Date.now()}`,
+      title: `New Comment on ${task.id}`,
+      message: `${authorName}: "${preview}"`,
+      timestamp: new Date().toISOString(),
+      type: "info",
+      priority: "Normal",
+      read: false,
+      taskId: task.id,
+      recipient: "all"
+    });
+    this.saveNotifications();
+    this.notify('NOTIFICATIONS_UPDATED', this.notifications);
+
     return comment;
   }
 
@@ -493,14 +571,15 @@ class StateStore {
     const req = this.leaveRequests.find(l => l.id === requestId);
     if (!req) return false;
 
+    const reviewer = (this.currentUser && this.currentUser.name) ? this.currentUser.name : 'Sarah (Lead)';
     req.status = "Approved";
-    req.reviewedBy = this.currentUser.name;
+    req.reviewedBy = reviewer;
     this.saveLeaveRequests();
 
     this.notifications.unshift({
       id: `notif-${Date.now()}`,
       title: "Leave Approved",
-      message: `Leave request for ${req.userName} was approved by ${this.currentUser.name}.`,
+      message: `Leave request for ${req.userName} was approved by ${reviewer}.`,
       timestamp: new Date().toISOString(),
       type: "success",
       read: false,
@@ -516,9 +595,21 @@ class StateStore {
     const req = this.leaveRequests.find(l => l.id === requestId);
     if (!req) return false;
 
+    const reviewer = (this.currentUser && this.currentUser.name) ? this.currentUser.name : 'Sarah (Lead)';
     req.status = "Rejected";
-    req.reviewedBy = this.currentUser.name;
+    req.reviewedBy = reviewer;
     this.saveLeaveRequests();
+
+    this.notifications.unshift({
+      id: `notif-${Date.now()}`,
+      title: "Leave Rejected",
+      message: `Leave request for ${req.userName} was rejected by ${reviewer}.`,
+      timestamp: new Date().toISOString(),
+      type: "warning",
+      read: false,
+      taskId: null
+    });
+    this.saveNotifications();
 
     this.notify('LEAVE_STATUS_CHANGED', req);
     return true;

@@ -37,6 +37,10 @@ class NavigationComponent {
         const view = navTarget.getAttribute('data-view');
         if (view) {
           e.preventDefault();
+          const sidebar = document.getElementById('app-sidebar');
+          const backdrop = document.getElementById('sidebar-backdrop');
+          if (sidebar) sidebar.classList.remove('mobile-open');
+          if (backdrop) backdrop.classList.remove('active');
           this.navigate(view);
           return;
         }
@@ -206,13 +210,30 @@ class NavigationComponent {
   attachListeners() {
     const toggleBtn = document.getElementById('btn-toggle-sidebar');
     if (toggleBtn) {
-      toggleBtn.onclick = () => {
+      toggleBtn.onclick = (e) => {
+        e.stopPropagation();
         const sidebar = document.getElementById('app-sidebar');
         const appLayout = document.getElementById('app-layout-shell');
-        if (sidebar && appLayout) {
+        if (!sidebar) return;
+
+        if (window.innerWidth <= 1024) {
+          let backdrop = document.getElementById('sidebar-backdrop');
+          if (!backdrop) {
+            backdrop = document.createElement('div');
+            backdrop.id = 'sidebar-backdrop';
+            backdrop.className = 'sidebar-backdrop';
+            document.body.appendChild(backdrop);
+            backdrop.onclick = () => {
+              sidebar.classList.remove('mobile-open');
+              backdrop.classList.remove('active');
+            };
+          }
+          const isOpen = sidebar.classList.toggle('mobile-open');
+          backdrop.classList.toggle('active', isOpen);
+        } else {
           this.isSidebarCollapsed = !this.isSidebarCollapsed;
           sidebar.classList.toggle('collapsed', this.isSidebarCollapsed);
-          appLayout.classList.toggle('sidebar-collapsed', this.isSidebarCollapsed);
+          if (appLayout) appLayout.classList.toggle('sidebar-collapsed', this.isSidebarCollapsed);
           localStorage.setItem('ops_sidebar_collapsed', this.isSidebarCollapsed);
         }
       };

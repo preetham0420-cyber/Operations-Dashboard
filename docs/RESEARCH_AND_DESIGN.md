@@ -1,62 +1,65 @@
-# UI & Design Notes
+# UI & Design Architecture - Operations Dashboard
 
-A simple overview of the layout, color choices, and structure for the Operations Dashboard.
-
----
-
-## 🎨 1. Design Goals
-
-The dashboard is built to be simple, fast, and easy for any employee to use:
-* **Clean & Modern Look**: A dark mode interface that is comfortable on the eyes, with a light mode toggle.
-* **Easy Navigation**: A left sidebar to quickly switch between pages without getting lost.
-* **Clear Task Views**: Users can view tasks either as a detailed table list or as visual cards.
+This document details the design system, color palette, responsive behavior, and user flow architectures implemented across the Operations Dashboard.
 
 ---
 
-## 🌈 2. Color Meanings
+## 1. Design Principles
 
-Standard, common colors are used so everything is immediately clear:
+* **High Information Density with Visual Clarity**: Designed for operations managers and field agents to monitor shifts, resolve incidents, and manage workload without visual fatigue.
+* **Modern Dark-First Aesthetic**: Tailored dark mode using deep slate and charcoal tones with crisp high-contrast text and luminous cyan, emerald, amber, and purple accents.
+* **Zero External Dependencies**: Built entirely using pure HTML5, vanilla CSS3 custom properties, and native ES6+ modules.
+* **Instant Interaction Feedback**: Immediate UI updates for progress upgrades, comment additions, leave approvals, and unread notification badge counts.
 
-| Color | Meaning | Where It's Used |
+---
+
+## 2. Color System & Design Tokens
+
+| Semantic Role | Token / Color | Usage Example |
 | :--- | :--- | :--- |
-| **Blue / Cyan** | Active / Primary | Action buttons, active navigation tab, "In Progress" tasks |
-| **Green** | Completed / Present | "Resolved" tasks, "Present" attendance status |
-| **Red** | Urgent / Overdue | "Critical" priority tasks, overdue task alerts |
-| **Purple** | Under Review | Tasks submitted for manager check |
-| **Dark Charcoal** | Background | Main application background |
+| **Primary Accent / Cyan** | `#00F0FF` / Cyan | Active navigation items, task progress bars, action highlights |
+| **Success / Emerald** | `#10B981` / Emerald | Resolved tasks, Present attendance, Approve button, Clock-in state |
+| **Warning / Amber** | `#F59E0B` / Amber | Under Review tasks, On Break indicator, Pending leave badges |
+| **Danger / Coral Red** | `#EF4444` / Coral | Critical priority, Late arrivals, Reject leave button, Overdue alerts |
+| **Purple / Review** | `#8B5CF6` / Purple | Manager review status, Leave balance card highlight |
+| **Neutral Slate** | Dark Grayscale | Card backgrounds (`#111726`), sidebars (`#0B0F19`), subtle borders |
 
 ---
 
-## 📱 3. Layout Structure
+## 3. Layout & Responsive Architecture
 
-1. **Top Header**:
-   - Live system status (Online).
-   - Search bar to quickly find any task by number or name.
-   - "New Task" button to create tasks.
-   - Theme toggle button (Dark / Light mode).
-   - User profile button.
+1. **Top Header (`app-topbar`)**:
+   * Global task search bar with shortcut key (`/`).
+   * **+ New Task** quick-action modal trigger.
+   * Real-time notifications bell with dynamic red unread counter badge.
+   * Mobile hamburger toggle button.
 
-2. **Left Sidebar Navigation**:
-   - **Dashboard**: Main overview of daily numbers and active tasks.
-   - **Task Management**: Full list of tasks with search and filters.
-   - **Attendance & Shifts**: Clock in/out and leave requests.
-   - **Notifications**: Updates and alerts.
-   - **Profile**: User details and theme settings.
+2. **Collapsible Sidebar & Mobile Navigation**:
+   * **Desktop**: Collapsible left sidebar with active view indicators and live task & notification counters.
+   * **Mobile Viewports (< 768px)**: Slide-out drawer menu with touch backdrop dismiss and dedicated bottom navigation bar for high-frequency actions.
 
-3. **Main Screen**:
-   - Fast Single-Page Application (SPA) where pages load instantly without refreshing the browser.
+3. **Single-Page Application (SPA) Router**:
+   * Hash-based navigation (`#dashboard`, `#tasks`, `#task-detail`, `#attendance`, `#notifications`, `#profile`).
+   * Dynamic ES module loading with automatic cache-busting version query parameters.
 
 ---
 
-## 👥 4. Simple Roles
+## 4. Role-Based Permissions & Simulation
 
-* **Agent Manager**:
-  - Views all team tasks and team progress.
-  - Checks live attendance for all 4 team agents.
-  - Approves or rejects time-off / leave applications.
+* **Manager Persona (`Sarah (Lead)`)**:
+  * Full access to team attendance logs and live agent status (*Clocked In*, *On Break*, *Late*).
+  * Leave approval queue with 1-click **Approve** / **Reject** controls.
+  * Task creation, assignment, and status approvals.
 
-* **Operations Agent**:
-  - Views their own assigned tasks by default.
-  - Can search by task number to find other tasks.
-  - Clocks in and out for their daily work shift.
-  - Submits leave requests to the manager.
+* **Agent Personas (`Alex`, `David`, `Elena`, `Marcus`)**:
+  * Personal shift clock with live ticking timer, break toggle, and time-off request modal.
+  * Task workload view (filterable by "My Tasks" or all tasks).
+  * Task discussion participation with live comments and progress slider updates.
+
+---
+
+## 5. State Management & Storage
+
+* **Store Architecture (`store.js`)**: Single source of truth with publish-subscribe pattern.
+* **Persistence**: Synchronized to browser `localStorage` for demo continuity.
+* **Auto Cache-Busting**: Server sends `Cache-Control: no-cache, no-store` headers and dynamic timestamped module imports prevent stale browser cache issues.

@@ -85,27 +85,27 @@ class Application {
           break;
         }
         case 'tasks': {
-          const { renderTasksView } = await import('./views/tasks-view.js');
+          const { renderTasksView } = await import(`./views/tasks-view.js?v=${Date.now()}`);
           renderTasksView(viewContainer, params);
           break;
         }
         case 'task-detail': {
-          const { renderTaskDetailView } = await import('./views/task-detail-view.js');
+          const { renderTaskDetailView } = await import(`./views/task-detail-view.js?v=${Date.now()}`);
           renderTaskDetailView(viewContainer, params);
           break;
         }
         case 'attendance': {
-          const { renderAttendanceView } = await import('./views/attendance-view.js');
+          const { renderAttendanceView } = await import(`./views/attendance-view.js?v=${Date.now()}`);
           renderAttendanceView(viewContainer);
           break;
         }
         case 'notifications': {
-          const { renderNotificationsView } = await import('./views/notifications-view.js');
+          const { renderNotificationsView } = await import(`./views/notifications-view.js?v=${Date.now()}`);
           renderNotificationsView(viewContainer);
           break;
         }
         case 'profile': {
-          const { renderProfileView } = await import('./views/profile-view.js');
+          const { renderProfileView } = await import(`./views/profile-view.js?v=${Date.now()}`);
           renderProfileView(viewContainer);
           break;
         }

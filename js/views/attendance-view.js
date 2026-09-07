@@ -111,15 +111,15 @@ function renderAgentAttendanceView(container) {
                   ${myHistory.map(row => `
                     <tr>
                       <td class="font-mono font-semibold">${row.date}</td>
-                      <td class="font-mono">${row.clockIn || 'ΓÇö'}</td>
-                      <td class="font-mono">${row.clockOut || 'ΓÇö'}</td>
+                      <td class="font-mono">${row.clockIn || '--'}</td>
+                      <td class="font-mono">${row.clockOut || '--'}</td>
                       <td class="font-mono text-cyan">${row.workHours || 'In Progress'}</td>
                       <td>
                         <span class="badge ${row.status === 'Present' ? 'badge-resolved' : (row.status === 'Late' ? 'badge-high' : 'badge-neutral')}">
                           ${row.status}
                         </span>
                       </td>
-                      <td class="text-muted text-xs">${row.notes || 'ΓÇö'}</td>
+                      <td class="text-muted text-xs">${row.notes || '--'}</td>
                     </tr>
                   `).join('')}
                 </tbody>
@@ -155,7 +155,7 @@ function renderAgentAttendanceView(container) {
               ` : myLeaves.map(lr => `
                 <div class="leave-mini-item">
                   <div class="leave-mini-header">
-                    <strong>${lr.leaveType} (${lr.days}d)</strong>
+                    <strong>${lr.leaveType} (${lr.daysCount || lr.days || 1}d)</strong>
                     <span class="badge badge-xs ${lr.status === 'Approved' ? 'badge-resolved' : (lr.status === 'Pending' ? 'badge-high' : 'badge-critical')}">
                       ${lr.status}
                     </span>
@@ -385,16 +385,16 @@ function renderManagerAttendanceView(container) {
                       <tr>
                         <td>
                           <div class="table-assignee">
-                            <img src="${row.avatar}" alt="${row.userName}" class="assignee-avatar-xs">
+                            <img src="${row.userAvatar || row.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}" alt="${row.userName}" class="assignee-avatar-xs">
                             <div>
                               <div class="assignee-name font-semibold">${row.userName}</div>
-                              <div class="assignee-badge">${row.userRole}</div>
+                              <div class="assignee-badge">${row.role || row.userRole || 'Field Agent'}</div>
                             </div>
                           </div>
                         </td>
                         <td class="font-mono">${row.date}</td>
-                        <td class="font-mono">${row.clockIn || 'ΓÇö'}</td>
-                        <td class="font-mono">${row.clockOut || 'ΓÇö'}</td>
+                        <td class="font-mono">${row.clockIn || '--'}</td>
+                        <td class="font-mono">${row.clockOut || '--'}</td>
                         <td class="font-mono text-cyan">${row.workHours || 'In Progress'}</td>
                         <td>
                           <span class="badge ${getStatusBadge(row.currentStatus)}">
@@ -433,15 +433,15 @@ function renderManagerAttendanceView(container) {
                 ` : pendingLeaves.map(req => `
                   <div class="leave-approval-card">
                     <div class="leave-agent-row">
-                      <img src="${req.avatar}" alt="${req.userName}" class="assignee-avatar-xs">
+                      <img src="${req.userAvatar || req.avatar || 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80'}" alt="${req.userName}" class="assignee-avatar-xs">
                       <div>
                         <strong>${req.userName}</strong>
-                        <div class="text-muted text-xs">${req.userRole}</div>
+                        <div class="text-muted text-xs">${req.role || req.userRole || 'Field Agent'}</div>
                       </div>
                     </div>
 
                     <div class="leave-type-pill">
-                      <span>${req.leaveType}</span> &bull; <strong>${req.days} Day(s)</strong>
+                      <span>${req.leaveType}</span> &bull; <strong>${req.daysCount || req.days || 1} Day(s)</strong>
                     </div>
 
                     <div class="leave-dates font-mono text-xs">
@@ -454,10 +454,12 @@ function renderManagerAttendanceView(container) {
 
                     <div class="leave-actions-row">
                       <button class="btn btn-xs btn-emerald btn-approve-leave" data-leave-id="${req.id}">
-                        Γ£ô Approve
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:-1px; margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span>Approve</span>
                       </button>
                       <button class="btn btn-xs btn-danger-outline btn-reject-leave" data-leave-id="${req.id}">
-                        Γ£ò Reject
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:-1px; margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        <span>Reject</span>
                       </button>
                     </div>
                   </div>
@@ -638,6 +640,7 @@ function getStatusBadge(status) {
     case 'Clocked In': return 'badge-resolved';
     case 'On Break': return 'badge-high';
     case 'Clocked Out': return 'badge-neutral';
+    case 'Not Clocked In': return 'badge-neutral';
     default: return 'badge-neutral';
   }
 }
