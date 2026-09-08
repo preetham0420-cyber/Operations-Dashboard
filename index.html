@@ -12,9 +12,9 @@
 
   <!-- Core Design Tokens & Stylesheets -->
   <link rel="stylesheet" href="css/design-tokens.css">
-  <link rel="stylesheet" href="css/layout.css">
-  <link rel="stylesheet" href="css/components.css">
-  <link rel="stylesheet" href="css/views.css">
+  <link rel="stylesheet" href="css/layout.css?v=1788805173100">
+  <link rel="stylesheet" href="css/components.css?v=1788805173100">
+  <link rel="stylesheet" href="css/views.css?v=1788805173100">
 </head>
 <body>
 
@@ -22,6 +22,26 @@
   <div id="app"></div>
 
   <!-- Main Application Entry Module -->
-  <script type="module" src="js/app.js?v=1788762762343"></script>
+  <script type="module" src="js/app.js?v=1788805173100"></script>
+
+  <!-- Resilience & Diagnostic Layer -->
+  <script>
+    window.addEventListener('error', function(e) {
+      console.error('Global Error Caught:', e.error || e.message);
+      var appEl = document.getElementById('app');
+      if (appEl && (!appEl.innerHTML || appEl.innerHTML.trim() === '')) {
+        appEl.innerHTML = '<div style="padding:40px; text-align:center; color:#fff; font-family:sans-serif; background:#0b0f19; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;">' +
+          '<div style="font-size:48px; margin-bottom:16px;">⚡</div>' +
+          '<h2 style="font-size:20px; font-weight:700; margin-bottom:8px; color:#00F0FF;">Operations Portal</h2>' +
+          '<p style="color:#8A99AD; max-width:460px; font-size:14px; margin-bottom:24px;">An older cached module was detected. Click below to load the latest release cleanly.</p>' +
+          '<button id="btn-fresh-reload" style="background:#00F0FF; color:#0b0f19; border:none; padding:10px 24px; font-weight:700; border-radius:8px; cursor:pointer; font-size:14px;">Hard Refresh & Load Latest</button>' +
+        '</div>';
+        document.getElementById('btn-fresh-reload')?.addEventListener('click', function() {
+          localStorage.clear();
+          window.location.reload();
+        });
+      }
+    });
+  </script>
 </body>
 </html>

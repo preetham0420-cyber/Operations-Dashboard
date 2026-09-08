@@ -865,21 +865,23 @@
 .lifecycle-stepper {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-2);
+  gap: var(--space-3);
+  margin-top: var(--space-2);
 }
 
 .lifecycle-step {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 10px 12px;
+  padding: 8px 12px;
   background-color: var(--color-bg-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
+  border-radius: var(--radius-md);
   transition: all var(--transition-fast);
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  min-height: 40px;
 }
 
 .lifecycle-step.current {
@@ -887,11 +889,75 @@
   border-color: var(--color-cyan);
   color: var(--color-cyan);
   font-weight: 700;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
 }
 
 .lifecycle-step.completed {
-  border-color: var(--color-emerald);
+  border-color: rgba(16, 185, 129, 0.4);
+  background-color: rgba(16, 185, 129, 0.08);
   color: var(--color-emerald);
+}
+
+.lifecycle-step.upcoming {
+  opacity: 0.55;
+}
+
+.lifecycle-step-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.lifecycle-step.current .lifecycle-step-icon {
+  background: var(--color-cyan);
+  color: #0b0f19;
+  border-color: var(--color-cyan);
+}
+
+.lifecycle-step.completed .lifecycle-step-icon {
+  background: var(--color-emerald);
+  color: #ffffff;
+  border-color: var(--color-emerald);
+}
+
+.lifecycle-step.upcoming .lifecycle-step-icon {
+  color: var(--color-text-muted);
+}
+
+.lifecycle-step-text {
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Strict Small & Simple Profile Pictures Across System */
+.officer-box-avatar,
+.team-member-avatar-sm,
+.avatar-circle-sm,
+.table-assignee img,
+.card-assignee-avatar {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  max-width: 28px !important;
+  max-height: 28px !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  border: 1.5px solid var(--color-border-subtle) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
 }
 
 .detail-columns-grid {
@@ -1529,4 +1595,254 @@
     max-width: 100% !important;
     box-sizing: border-box !important;
   }
+}
+
+
+/* --- Settings & Team Management Styles --- */
+.settings-nav-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border-color, #1e293b);
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+.settings-tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary, #94a3b8);
+  padding: 0.75rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 8px 8px 0 0;
+  transition: all 0.2s ease;
+  border-bottom: 2px solid transparent;
+}
+.settings-tab-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+}
+.settings-tab-btn.active {
+  color: var(--accent-cyan, #00f0ff);
+  border-bottom-color: var(--accent-cyan, #00f0ff);
+  background: rgba(0, 240, 255, 0.05);
+}
+
+.teams-split-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 1.5rem;
+}
+.team-division-card {
+  background: var(--card-bg, #111726);
+  border: 1px solid var(--border-color, #1e293b);
+  border-radius: 12px;
+}
+.team-a-card {
+  border-top: 3px solid #00f0ff;
+}
+.team-b-card {
+  border-top: 3px solid #10b981;
+}
+.badge-team-a {
+  background: rgba(0, 240, 255, 0.15);
+  color: #00f0ff;
+  font-weight: 700;
+}
+.badge-team-b {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  font-weight: 700;
+}
+.badge-head {
+  background: #f59e0b;
+  color: #000;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.team-members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.team-member-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.8rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.avatar-circle-sm {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 240, 255, 0.2);
+  color: #00f0ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+.avatar-emerald {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+/* --- Progress Lock Banner --- */
+.progress-lock-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+.disabled-slider {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+}
+.disabled-preset {
+  opacity: 0.4;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+.btn-danger-soft {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+.btn-danger-soft:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fff;
+  border-color: #ef4444;
+}
+
+/* --- Theme Options Grid --- */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+.theme-option {
+  border: 2px solid var(--border-color, #1e293b);
+  border-radius: 10px;
+  padding: 1rem;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.2s ease;
+}
+.theme-option:hover {
+  border-color: var(--accent-cyan, #00f0ff);
+}
+.theme-option.active {
+  border-color: var(--accent-cyan, #00f0ff);
+  background: rgba(0, 240, 255, 0.04);
+}
+.theme-preview {
+  height: 48px;
+  border-radius: 6px;
+  margin-bottom: 0.75rem;
+}
+.dark-slate { background: linear-gradient(135deg, #0b0f19, #111726, #00f0ff); }
+.midnight-blue { background: linear-gradient(135deg, #050b1a, #0d1b38, #3b82f6); }
+.clean-light { background: linear-gradient(135deg, #f8fafc, #e2e8f0, #0284c7); }
+.cyber-black { background: linear-gradient(135deg, #000000, #0a0a0a, #10b981); }
+.theme-name { font-weight: 700; color: #fff; font-size: 0.9rem; margin-bottom: 0.25rem; }
+.theme-desc { font-size: 0.75rem; color: var(--text-secondary, #94a3b8); }
+
+.demo-buttons-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+
+/* --- Enhanced Team Management & Create Agent Button Styles --- */
+.settings-main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.btn-glow {
+  background: linear-gradient(135deg, #00f0ff 0%, #0284c7 100%) !important;
+  color: #040812 !important;
+  font-weight: 700 !important;
+  border: none !important;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.4) !important;
+  transition: all 0.25s ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  padding: 0.65rem 1.25rem !important;
+  border-radius: 8px !important;
+}
+
+.btn-glow:hover {
+  box-shadow: 0 0 30px rgba(0, 240, 255, 0.65) !important;
+  transform: translateY(-2px) !important;
+  color: #000 !important;
+}
+
+.btn-lg {
+  padding: 0.85rem 1.6rem !important;
+  font-size: 1rem !important;
+}
+
+.team-mgmt-header-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.08) 0%, rgba(16, 185, 129, 0.05) 100%);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: 14px;
+  padding: 1.5rem 1.8rem;
+  margin-bottom: 1.8rem;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+}
+
+.team-mgmt-pill {
+  display: inline-block;
+  background: rgba(0, 240, 255, 0.15);
+  color: #00f0ff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.team-mgmt-banner-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 0.35rem 0;
+}
+
+.team-mgmt-banner-desc {
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.88rem;
+  margin: 0;
+  max-width: 600px;
 }

@@ -97,7 +97,33 @@ export function renderProfileView(container) {
           </div>
         </div>
       </div>
-    </div>
+    
+      <!-- Change Password Card -->
+      <div class="card mt-6">
+        <div class="card-header">
+          <h2 class="card-title">Change Password</h2>
+          <p class="text-secondary text-sm">Ensure your operations account uses a strong, private password.</p>
+        </div>
+        <div class="card-body">
+          <form id="profile-change-pw-form" class="settings-form" style="max-width: 480px;">
+            <div class="form-group mb-3">
+              <label class="form-label">Current Password</label>
+              <input type="password" id="profile-curr-pw" class="form-input" placeholder="Current password" required />
+            </div>
+            <div class="form-group mb-3">
+              <label class="form-label">New Password</label>
+              <input type="password" id="profile-new-pw" class="form-input" placeholder="Minimum 8 characters" required minlength="8" />
+            </div>
+            <div class="form-group mb-3">
+              <label class="form-label">Confirm New Password</label>
+              <input type="password" id="profile-confirm-pw" class="form-input" placeholder="Re-enter new password" required minlength="8" />
+            </div>
+            <button type="submit" class="btn btn-primary mt-2">Update Password</button>
+          </form>
+        </div>
+      </div>
+
+</div>
   `;
 
   attachListeners();

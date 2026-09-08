@@ -1,11 +1,76 @@
+import { store } from '../services/store.js';
+import { toast } from '../components/toast.js';
+import { MOCK_USERS } from '../data/mock-auth.js';
+
+
+// =========================================================================
+// SHIFT CLOCK-OUT VERIFICATION MODAL POPUP
+// =========================================================================
+export function showClockOutVerificationModal(onConfirmed) {
+  let modalEl = document.getElementById('modal-confirm-clockout');
+  if (modalEl) modalEl.remove();
+
+  const user = store.currentUser || { name: 'Officer', email: 'agent@operations.dev' };
+  const todayRecord = store.getTodayRecord(user.email);
+  const clockInTime = todayRecord?.clockIn || '10:00 AM';
+  const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  modalEl = document.createElement('div');
+  modalEl.id = 'modal-confirm-clockout';
+  modalEl.className = 'modal-backdrop active';
+  modalEl.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(4px); padding: 16px;';
+
+  modalEl.innerHTML = `
+    <div class="modal-dialog" style="background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); width: 100%; max-width: 440px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); overflow: hidden; animation: fadeInScale 0.2s ease-out;">
+      <div style="padding: 24px 24px 18px; text-align: center;">
+        <div style="width: 56px; height: 56px; border-radius: 50%; background: rgba(239, 68, 68, 0.15); border: 1.5px solid var(--color-red); color: var(--color-red); display: flex; align-items: center; justify-content: center; font-size: 26px; margin: 0 auto 16px;">
+          ⏱️
+        </div>
+        <h3 style="font-size: var(--text-lg); font-weight: 700; color: var(--color-text-primary); margin-bottom: 6px;">Verify Shift Clock-Out</h3>
+        <p style="font-size: var(--text-xs); color: var(--color-text-secondary); line-height: 1.5; margin-bottom: 18px;">
+          Are you sure you want to end your operational shift for today? This will record your final clock-out timestamp and log your work hours.
+        </p>
+
+        <div style="background: var(--color-bg-surface-raised); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: left;">
+          <div>
+            <div style="font-size: 10px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Clock In Time</div>
+            <div style="font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--color-cyan);">${clockInTime}</div>
+          </div>
+          <div>
+            <div style="font-size: 10px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Clock Out Time</div>
+            <div style="font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--color-red);">${nowStr}</div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-clockout" style="flex: 1;">Cancel</button>
+          <button type="button" class="btn btn-danger btn-glow" id="btn-confirm-clockout-action" style="flex: 1;">Verify & Clock Out</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modalEl);
+
+  document.getElementById('btn-cancel-clockout').onclick = () => {
+    modalEl.remove();
+  };
+
+  document.getElementById('btn-confirm-clockout-action').onclick = () => {
+    modalEl.remove();
+    if (typeof onConfirmed === 'function') onConfirmed();
+  };
+
+  modalEl.onclick = (e) => {
+    if (e.target === modalEl) modalEl.remove();
+  };
+}
+
+
 /**
  * Attendance Tracking View
  * Role-aware: Manager Team Overview vs. Agent Personal Clock & Log
  */
-
-import { store } from '../services/store.js';
-import { toast } from '../components/toast.js';
-import { MOCK_USERS } from '../data/mock-auth.js';
 
 export function renderAttendanceView(container) {
   const isManager = store.isManager();
@@ -63,18 +128,29 @@ function renderAgentAttendanceView(container) {
             </span>
           </div>
 
-          <div class="clock-actions-group">
-            ${currentStatus !== 'Clocked In' && currentStatus !== 'On Break' ? `
-              <button class="btn btn-primary btn-lg btn-glow" id="btn-clock-in">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                <span>Clock In (Check-In)</span>
+          <div class="clock-actions-group" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            ${(currentStatus === 'Clocked In' || currentStatus === 'On Break') ? `
+              <button class="btn btn-secondary" id="btn-clock-in-disabled" disabled style="opacity: 0.65; cursor: default;" title="Already clocked in">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-emerald)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Clocked In (${todayRecord?.clockIn || 'Active'})</span>
+              </button>
+
+              <button class="btn ${currentStatus === 'On Break' ? 'btn-primary' : 'btn-secondary'}" id="btn-toggle-break">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/></svg>
+                <span>${currentStatus === 'On Break' ? '☕ End Break & Resume' : '☕ Take a Break'}</span>
+              </button>
+
+              <button class="btn btn-danger btn-glow" id="btn-clock-out" title="End shift and record clock-out">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span>Clock Out (End Shift)</span>
               </button>
             ` : `
-              <button class="btn ${currentStatus === 'On Break' ? 'btn-primary' : 'btn-secondary'}" id="btn-toggle-break">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
-                <span>${currentStatus === 'On Break' ? 'End Break & Resume' : 'Take a Break'}</span>
+              <button class="btn btn-primary btn-lg btn-glow" id="btn-clock-in">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>${currentStatus === 'Clocked Out' ? 'Clock In Again' : 'Clock In (Check-In)'}</span>
               </button>
-              <button class="btn btn-outline btn-danger-outline" id="btn-clock-out">
+
+              <button class="btn btn-outline" id="btn-clock-out-disabled" disabled style="opacity: 0.45; cursor: not-allowed;" title="You must clock in first before ending shift">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 <span>Clock Out (End Shift)</span>
               </button>
@@ -213,7 +289,7 @@ function renderAgentAttendanceView(container) {
   const clockOutBtn = container.querySelector('#btn-clock-out');
   if (clockOutBtn) {
     clockOutBtn.addEventListener('click', () => {
-      if (confirm("Are you sure you want to end your shift and clock out?")) {
+      showClockOutVerificationModal(() => {
         store.clockOut();
         toast.show({
           title: "Shift Completed",
@@ -222,7 +298,7 @@ function renderAgentAttendanceView(container) {
         });
         clearInterval(clockInterval);
         renderAgentAttendanceView(container);
-      }
+      });
     });
   }
 
@@ -285,6 +361,46 @@ function renderManagerAttendanceView(container) {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               <span>Export Attendance CSV</span>
             </button>
+          </div>
+        </div>
+
+        <!-- Manager Personal Shift Clock & Controls -->
+        <div class="card attendance-clock-card" style="margin-bottom: var(--space-5);">
+          <div class="clock-left">
+            <div class="live-clock-time" id="mgr-live-clock">--:--:--</div>
+            <div class="live-clock-date">${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</div>
+            <div class="shift-schedule-text">
+              Manager Shift: <strong>10:00 AM - 5:00 PM</strong> &bull; Assigned: <strong>Operations Management</strong>
+            </div>
+          </div>
+          <div class="clock-right">
+            <div class="status-indicator-box">
+              <span class="status-indicator-label">MANAGER SHIFT STATUS:</span>
+              <span class="badge ${getStatusBadge(store.getTodayRecord(store.currentUser?.email)?.currentStatus || 'Not Clocked In')}" style="font-size: var(--text-sm); padding: 4px 12px;">
+                ${store.getTodayRecord(store.currentUser?.email)?.currentStatus || 'Not Clocked In'}
+              </span>
+            </div>
+            <div class="clock-actions-group" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+              ${(store.getTodayRecord(store.currentUser?.email)?.currentStatus === 'Clocked In') ? `
+                <button class="btn btn-secondary" disabled style="opacity: 0.65; cursor: default;">
+                  <span style="color: var(--color-emerald);">✓</span>
+                  <span>Clocked In (${store.getTodayRecord(store.currentUser?.email)?.clockIn || '10:00 AM'})</span>
+                </button>
+                <button class="btn btn-danger btn-glow" id="btn-mgr-clock-out" title="End shift and record clock-out">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                  <span>Clock Out (End Shift)</span>
+                </button>
+              ` : `
+                <button class="btn btn-primary btn-lg btn-glow" id="btn-mgr-clock-in">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  <span>Clock In (Check-In)</span>
+                </button>
+                <button class="btn btn-outline" disabled style="opacity: 0.45; cursor: not-allowed;" title="You must clock in first before ending shift">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                  <span>Clock Out (End Shift)</span>
+                </button>
+              `}
+            </div>
           </div>
         </div>
 
@@ -475,6 +591,42 @@ function renderManagerAttendanceView(container) {
   }
 
   function attachManagerListeners() {
+    // Live ticking for Manager clock
+    const mgrClock = container.querySelector('#mgr-live-clock');
+    if (mgrClock) {
+      mgrClock.textContent = new Date().toLocaleTimeString();
+    }
+
+    // Manager Clock-in
+    const mgrClockIn = container.querySelector('#btn-mgr-clock-in');
+    if (mgrClockIn) {
+      mgrClockIn.addEventListener('click', () => {
+        store.clockIn();
+        toast.show({
+          title: "Shift Started",
+          message: "Manager shift clock-in recorded successfully.",
+          type: "success"
+        });
+        render();
+      });
+    }
+
+    // Manager Clock-out
+    const mgrClockOut = container.querySelector('#btn-mgr-clock-out');
+    if (mgrClockOut) {
+      mgrClockOut.addEventListener('click', () => {
+        showClockOutVerificationModal(() => {
+          store.clockOut();
+          toast.show({
+            title: "Shift Completed",
+            message: "Manager shift clocked out successfully.",
+            type: "info"
+          });
+          render();
+        });
+      });
+    }
+
     // Filter by agent
     const agentFilter = container.querySelector('#filter-mgr-agent');
     if (agentFilter) {

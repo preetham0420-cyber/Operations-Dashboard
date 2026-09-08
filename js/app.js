@@ -104,7 +104,12 @@ class Application {
           renderNotificationsView(viewContainer);
           break;
         }
-        case 'profile': {
+              case 'settings': {
+          const { renderSettingsView } = await import(`./views/settings-view.js?v=${Date.now()}`);
+          renderSettingsView(viewContainer);
+          break;
+        }
+      case 'profile': {
           const { renderProfileView } = await import(`./views/profile-view.js?v=${Date.now()}`);
           renderProfileView(viewContainer);
           break;

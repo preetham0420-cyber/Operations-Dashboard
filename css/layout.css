@@ -120,7 +120,17 @@ html, body {
   transition: opacity var(--transition-fast);
 }
 
+.gesf-sidebar.collapsed .sidebar-brand {
+  padding: 0;
+  justify-content: center;
+}
+
+.gesf-sidebar.collapsed .brand-logo-icon {
+  margin: 0 auto;
+}
+
 .gesf-sidebar.collapsed .brand-text-block {
+  display: none;
   opacity: 0;
   pointer-events: none;
 }
@@ -224,10 +234,7 @@ html, body {
   transition: opacity var(--transition-fast);
 }
 
-.gesf-sidebar.collapsed .nav-label {
-  display: none;
-}
-
+/* Standard Badge styling */
 .nav-badge-count {
   margin-left: auto;
   font-size: 0.7rem;
@@ -245,8 +252,115 @@ html, body {
   box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
 }
 
+/* ==========================================================================
+   COLLAPSED SIDEBAR (Icon-Only Mode Refinements)
+   ========================================================================== */
+
+.gesf-sidebar.collapsed .sidebar-nav {
+  padding: var(--space-4) 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.gesf-sidebar.collapsed .nav-section-title {
+  display: none !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.gesf-sidebar.collapsed .nav-item {
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  margin: 2px auto;
+  justify-content: center;
+  align-items: center;
+  border-radius: var(--radius-md);
+  position: relative;
+  gap: 0;
+}
+
+.gesf-sidebar.collapsed .nav-icon {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gesf-sidebar.collapsed .nav-label {
+  display: none !important;
+}
+
+.gesf-sidebar.collapsed .nav-item.active {
+  background: var(--color-cyan-bg);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  color: var(--color-cyan);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
+}
+
+.gesf-sidebar.collapsed .nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 22px;
+  background-color: var(--color-cyan);
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 0 10px var(--color-cyan);
+}
+
+/* Floating micro-pill badge on top-right of icon - avoids edge cut-off */
 .gesf-sidebar.collapsed .nav-badge-count {
-  display: none;
+  position: absolute !important;
+  top: 3px !important;
+  right: 3px !important;
+  min-width: 17px !important;
+  height: 17px !important;
+  padding: 0 4px !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  line-height: 17px !important;
+  text-align: center !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 9999px !important;
+  border: 2px solid var(--color-bg-surface) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6) !important;
+  margin: 0 !important;
+  z-index: 10;
+}
+
+.gesf-sidebar.collapsed .nav-badge-count.notif-count {
+  background-color: var(--color-red) !important;
+  color: #ffffff !important;
+}
+
+/* Collapsed Footer Widget */
+.gesf-sidebar.collapsed .sidebar-footer {
+  padding: var(--space-3) 0;
+  display: flex;
+  justify-content: center;
+}
+
+.gesf-sidebar.collapsed .sidebar-user-card {
+  padding: 0;
+  background: transparent;
+  border: none;
+  justify-content: center;
+  width: auto;
+}
+
+.gesf-sidebar.collapsed .sidebar-user-avatar {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto;
 }
 
 /* Sidebar Footer & User Widget */

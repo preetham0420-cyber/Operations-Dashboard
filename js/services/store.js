@@ -4,7 +4,7 @@
  * Persists data to localStorage with SHA-256 password hashing
  */
 
-import { MOCK_USERS, CURRENT_DEFAULT_USER } from '../data/mock-auth.js';
+import { MOCK_USERS, CURRENT_DEFAULT_USER, INITIAL_TEAMS } from '../data/mock-auth.js';
 import { INITIAL_TASKS } from '../data/mock-tasks.js';
 import { INITIAL_ATTENDANCE, INITIAL_LEAVE_REQUESTS } from '../data/mock-attendance.js';
 import { INITIAL_NOTIFICATIONS } from '../data/mock-notifications.js';
@@ -49,7 +49,7 @@ class StateStore {
     const currentVersion = localStorage.getItem('ops_data_version');
     const rawSavedTasks = localStorage.getItem('ops_tasks') || '';
 
-    if (currentVersion !== STORE_VERSION || rawSavedTasks.includes('Rivera') || rawSavedTasks.includes('Jenkins') || rawSavedTasks.includes('Resolved') || rawSavedTasks.includes('Critical')) {
+    if (currentVersion !== STORE_VERSION || rawSavedTasks.includes('Rivera') || rawSavedTasks.includes('Jenkins')) {
       localStorage.removeItem('ops_tasks');
       localStorage.removeItem('ops_attendance');
       localStorage.removeItem('ops_leave_requests');
@@ -58,6 +58,14 @@ class StateStore {
       localStorage.removeItem('ops_current_user');
       localStorage.setItem('ops_data_version', STORE_VERSION);
     }
+
+    // Users
+    const savedUsers = localStorage.getItem('op_users');
+    this.users = savedUsers ? JSON.parse(savedUsers) : JSON.parse(JSON.stringify(MOCK_USERS));
+
+    // Teams
+    const savedTeams = localStorage.getItem('op_teams');
+    this.teams = savedTeams ? JSON.parse(savedTeams) : JSON.parse(JSON.stringify(INITIAL_TEAMS));
 
     // Name Sanitizer Helper
     const sanitizeName = (str) => {
@@ -102,22 +110,27 @@ class StateStore {
     // Tasks
     const savedTasks = localStorage.getItem('ops_tasks');
     this.tasks = savedTasks ? JSON.parse(savedTasks) : [...INITIAL_TASKS];
-    this.tasks.forEach(t => {
-      if (t.assignee) {
-        t.assignee.name = sanitizeName(t.assignee.name);
-        t.assignee.email = sanitizeName(t.assignee.email);
+    // Normalize tasks
+    this.tasks = this.tasks.map(t => {
+      if (!t.assignee || typeof t.assignee === 'string') {
+        const aName = typeof t.assignee === 'string' ? t.assignee : 'Alex';
+        const userMatch = this.users.find(u => u.name === aName || u.id === t.assigneeId) || this.users[1];
+        t.assignee = {
+          name: userMatch ? userMatch.name : aName,
+          email: userMatch ? userMatch.email : (aName.toLowerCase() + '@company.com'),
+          avatar: userMatch ? userMatch.avatar : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+          role: userMatch ? userMatch.role : 'Agent'
+        };
       }
-      if (t.timeline) {
-        t.timeline.forEach(item => {
-          if (item.author) item.author = sanitizeName(item.author);
-          if (item.message) item.message = sanitizeName(item.message);
-        });
-      }
+      if (!Array.isArray(t.comments)) t.comments = t.discussion || [];
+      if (!Array.isArray(t.attachments)) t.attachments = [];
+      if (!Array.isArray(t.timeline)) t.timeline = [];
       if (t.comments) {
         t.comments.forEach(c => {
           if (c.author) c.author = sanitizeName(c.author);
         });
       }
+      return t;
     });
     localStorage.setItem('ops_tasks', JSON.stringify(this.tasks));
 
@@ -126,7 +139,10 @@ class StateStore {
     this.attendance = savedAttendance ? JSON.parse(savedAttendance) : [...INITIAL_ATTENDANCE];
     this.attendance.forEach(a => {
       a.userName = sanitizeName(a.userName);
-      a.userEmail = sanitizeName(a.userEmail);
+      if (!a.userEmail && (a.userId || a.userName)) {
+        const matched = this.users.find(u => u.id === a.userId || u.name === a.userName);
+        if (matched) a.userEmail = matched.email;
+      }
     });
     localStorage.setItem('ops_attendance', JSON.stringify(this.attendance));
 
@@ -160,7 +176,7 @@ class StateStore {
     // Theme
     const savedTheme = localStorage.getItem('ops_theme') || 'dark';
     this.theme = savedTheme;
-    document.documentElement.setAttribute('data-theme', savedTheme);
+    if (typeof document !== 'undefined' && document.documentElement) { document.documentElement.setAttribute('data-theme', savedTheme); }
   }
 
   subscribe(listener) {
@@ -351,6 +367,13 @@ class StateStore {
     const task = this.getTaskById(taskId);
     if (!task) return false;
 
+    // Submit for Manager Review cannot be undone by agents
+    const curStatus = (task.status || '').toLowerCase();
+    if (curStatus.includes('review') && !this.isManager()) {
+      console.warn('Unauthorized: Tasks submitted for Manager Review cannot be undone by agents.');
+      return false;
+    }
+
     const oldStatus = task.status;
     task.status = newStatus;
 
@@ -451,83 +474,116 @@ class StateStore {
     return this.attendance;
   }
 
-  getTodayShiftForUser(email) {
-    const todayStr = "2026-08-31";
-    return this.attendance.find(a => a.userEmail === email && a.date === todayStr);
+  getTodayShiftForUser(identifier) {
+    const user = this.currentUser;
+    const targetEmail = (typeof identifier === 'string' ? identifier : identifier?.email) || user?.email || '';
+    const targetName = user?.name || '';
+    const targetId = user?.id || '';
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    return this.attendance.find(a => 
+      ((targetEmail && a.userEmail === targetEmail) || (targetId && a.userId === targetId) || (targetName && a.userName === targetName) || (targetEmail && a.userName === targetEmail)) && a.date === todayStr
+    ) || this.attendance.find(a => 
+      (targetEmail && a.userEmail === targetEmail) || (targetId && a.userId === targetId) || (targetName && a.userName === targetName) || (targetEmail && a.userName === targetEmail)
+    ) || null;
+  }
+
+  getTodayRecord(email) {
+    return this.getTodayShiftForUser(email);
   }
 
   clockIn(email) {
-    const todayStr = "2026-08-31";
-    let record = this.attendance.find(a => a.userEmail === email && a.date === todayStr);
+    const targetEmail = email || (this.currentUser ? this.currentUser.email : '');
+    const todayStr = new Date().toISOString().split('T')[0];
     const nowTimeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+    let record = this.attendance.find(a => (a.userEmail === targetEmail || a.userId === this.currentUser?.id || a.userName === this.currentUser?.name) && a.date === todayStr);
 
     if (!record) {
       record = {
         id: `att-${Date.now()}`,
-        userEmail: email,
-        userName: this.currentUser.name,
-        userAvatar: this.currentUser.avatar,
-        role: this.currentUser.role,
+        userId: this.currentUser?.id || 'usr-1',
+        userEmail: targetEmail,
+        userName: this.currentUser?.name || 'Agent',
+        userAvatar: this.currentUser?.avatar,
+        role: this.currentUser?.role || 'Operations Agent',
         date: todayStr,
         clockIn: nowTimeStr,
         clockOut: null,
-        totalHours: "0.1 hrs",
+        currentStatus: "Clocked In",
         status: "Present",
-        isOnBreak: false
+        isOnBreak: false,
+        totalHours: "In Progress"
       };
       this.attendance.unshift(record);
     } else {
       record.clockIn = nowTimeStr;
+      record.clockOut = null;
+      record.currentStatus = "Clocked In";
       record.status = "Present";
       record.isOnBreak = false;
+      record.totalHours = "In Progress";
     }
 
     this.saveAttendance();
     this.addActivity({
-      user: this.currentUser.name,
+      user: this.currentUser?.name || 'Agent',
       action: "clocked in",
       target: "SHIFT",
       detail: `Shift started at ${nowTimeStr}`,
-      avatar: this.currentUser.avatar
+      avatar: this.currentUser?.avatar
     });
     this.notify('ATTENDANCE_UPDATED', record);
     return record;
   }
 
   clockOut(email) {
-    const todayStr = "2026-08-31";
-    const record = this.attendance.find(a => a.userEmail === email && a.date === todayStr);
+    const targetEmail = email || (this.currentUser ? this.currentUser.email : '');
+    const todayStr = new Date().toISOString().split('T')[0];
+    const nowTimeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+    let record = this.attendance.find(a => (a.userEmail === targetEmail || a.userId === this.currentUser?.id || a.userName === this.currentUser?.name) && a.date === todayStr);
+    if (!record) {
+      record = this.attendance.find(a => a.userEmail === targetEmail || a.userId === this.currentUser?.id || a.userName === this.currentUser?.name);
+    }
     if (!record) return null;
 
-    const nowTimeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     record.clockOut = nowTimeStr;
+    record.currentStatus = "Clocked Out";
+    record.status = "Present";
     record.isOnBreak = false;
+    record.totalHours = "Completed";
 
     this.saveAttendance();
     this.addActivity({
-      user: this.currentUser.name,
+      user: this.currentUser?.name || 'Agent',
       action: "clocked out",
       target: "SHIFT",
-      detail: `Shift completed at ${nowTimeStr}`,
-      avatar: this.currentUser.avatar
+      detail: `Shift ended at ${nowTimeStr}`,
+      avatar: this.currentUser?.avatar
     });
     this.notify('ATTENDANCE_UPDATED', record);
     return record;
   }
 
   toggleBreak(email) {
-    const todayStr = "2026-08-31";
-    const record = this.attendance.find(a => a.userEmail === email && a.date === todayStr);
+    const targetEmail = email || (this.currentUser ? this.currentUser.email : '');
+    const todayStr = new Date().toISOString().split('T')[0];
+    let record = this.attendance.find(a => (a.userEmail === targetEmail || a.userId === this.currentUser?.id || a.userName === this.currentUser?.name) && a.date === todayStr);
+    if (!record) {
+      record = this.attendance.find(a => a.userEmail === targetEmail || a.userId === this.currentUser?.id || a.userName === this.currentUser?.name);
+    }
     if (!record) return null;
 
     record.isOnBreak = !record.isOnBreak;
+    record.currentStatus = record.isOnBreak ? "On Break" : "Clocked In";
     this.saveAttendance();
     this.addActivity({
-      user: this.currentUser.name,
-      action: record.isOnBreak ? "started break" : "ended break",
+      user: this.currentUser?.name || 'Agent',
+      action: record.isOnBreak ? "started break" : "resumed shift",
       target: "BREAK",
-      detail: record.isOnBreak ? "Meal / Rest Break" : "Resumed active shift",
-      avatar: this.currentUser.avatar
+      detail: record.isOnBreak ? "Meal / Rest break" : "Returned from break",
+      avatar: this.currentUser?.avatar
     });
     this.notify('ATTENDANCE_UPDATED', record);
     return record;
@@ -568,6 +624,7 @@ class StateStore {
   }
 
   approveLeaveRequest(requestId) {
+    if (!this.isManager()) { console.warn('Unauthorized: Only Manager can approve leave requests'); return false; }
     const req = this.leaveRequests.find(l => l.id === requestId);
     if (!req) return false;
 
@@ -592,6 +649,7 @@ class StateStore {
   }
 
   rejectLeaveRequest(requestId) {
+    if (!this.isManager()) { console.warn('Unauthorized: Only Manager can reject leave requests'); return false; }
     const req = this.leaveRequests.find(l => l.id === requestId);
     if (!req) return false;
 
@@ -626,13 +684,25 @@ class StateStore {
   // -------------------------------------------------------------
   // Theme Toggle
   // -------------------------------------------------------------
-  toggleTheme() {
-    const newTheme = this.theme === 'dark' ? 'light' : 'dark';
+  getTheme() {
+    return this.theme || (typeof localStorage !== 'undefined' ? localStorage.getItem('ops_theme') : null) || 'dark';
+  }
+
+  setTheme(newTheme) {
     this.theme = newTheme;
-    localStorage.setItem('ops_theme', newTheme);
-    document.documentElement.setAttribute('data-theme', newTheme);
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.setItem('ops_theme', newTheme);
+      if (typeof document !== 'undefined' && document.documentElement) {
+        document.documentElement.setAttribute('data-theme', newTheme);
+      }
+    } catch(e) {}
     this.notify('THEME_CHANGED', newTheme);
     return newTheme;
+  }
+
+  toggleTheme() {
+    const newTheme = this.theme === 'dark' ? 'light' : 'dark';
+    return this.setTheme(newTheme);
   }
 
   // -------------------------------------------------------------
@@ -721,6 +791,266 @@ class StateStore {
     this.notify('DEMO_RESET', null);
     window.location.reload();
   }
+
+  loadTeams() {
+    try {
+      const saved = localStorage.getItem('op_teams');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn('Error loading teams from localStorage:', e);
+    }
+    return JSON.parse(JSON.stringify(INITIAL_TEAMS));
+  }
+
+  saveUsers() {
+    try {
+      localStorage.setItem('op_users', JSON.stringify(this.users));
+    } catch (e) {
+      console.warn('Error saving users to localStorage:', e);
+    }
+  }
+
+  saveCurrentUser() {
+    try {
+      localStorage.setItem('ops_current_user', JSON.stringify(this.currentUser));
+    } catch (e) {
+      console.warn('Error saving currentUser to localStorage:', e);
+    }
+  }
+
+  saveTeams() {
+    try {
+      localStorage.setItem('op_teams', JSON.stringify(this.teams));
+    } catch (e) {
+      console.warn('Error saving teams to localStorage:', e);
+    }
+    this.notify('TEAMS_UPDATED', this.teams);
+  }
+
+  getTeams() {
+    return this.teams.map(team => {
+      const members = this.users.filter(u => u.teamId === team.id);
+      const head = this.users.find(u => u.id === team.headId || (u.name === team.headName && u.teamId === team.id));
+      return {
+        ...team,
+        headName: head ? head.name : team.headName,
+        members
+      };
+    });
+  }
+
+  setTeamHead(teamId, agentId) {
+    if (!this.isManager()) {
+      console.warn('Unauthorized: Only manager can appoint team heads.');
+      return false;
+    }
+    const team = this.teams.find(t => t.id === teamId);
+    const agent = this.users.find(u => u.id === agentId);
+    if (!team || !agent) return false;
+
+    // Reset current team members isTeamHead flag
+    this.users.forEach(u => {
+      if (u.teamId === teamId) {
+        u.isTeamHead = (u.id === agentId);
+      }
+    });
+
+    team.headId = agent.id;
+    team.headName = agent.name;
+    this.saveUsers();
+    this.saveTeams();
+    this.notify('TEAMS_UPDATED', this.teams);
+    return true;
+  }
+
+  transferAgent(agentId, targetTeamId) {
+    if (!this.isManager()) {
+      console.warn('Unauthorized: Only manager can transfer agents.');
+      return false;
+    }
+    const agent = this.users.find(u => u.id === agentId);
+    if (!agent) return false;
+
+    agent.teamId = targetTeamId;
+    agent.isTeamHead = false; // Reset lead status on transfer
+    this.saveUsers();
+    this.saveTeams();
+    this.notify('TEAMS_UPDATED', this.teams);
+    return true;
+  }
+
+  createAgent({ name, email, role, teamId, shift, password, phone, location, skills, isTeamHead }) {
+    if (!this.isManager()) {
+      console.warn('Unauthorized: Only manager can create agents.');
+      return null;
+    }
+    const newId = 'usr-' + (Date.now() % 100000);
+    const departmentName = teamId === 'team-a' ? 'Tech & Operations' : 'Field & Logistics';
+    
+    const newAgent = {
+      id: newId,
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      role: role || 'Field Agent',
+      department: departmentName,
+      teamId: teamId || 'team-a',
+      isManager: false,
+      isTeamHead: !!isTeamHead,
+      shift: shift || '10:00 AM - 5:00 PM',
+      phone: phone || '+1 (555) 019-' + (1000 + Math.floor(Math.random() * 9000)),
+      location: location || (teamId === 'team-a' ? 'HQ Ops Center - Floor 2' : 'Field Hub - Station Alpha'),
+      skills: skills ? (Array.isArray(skills) ? skills : skills.split(',').map(s => s.trim()).filter(Boolean)) : ['Operations', 'Dispatch'],
+      password: password || 'Password123!',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      stats: { assigned: 0, completed: 0, onTimeRate: '100%', activeIncidents: 0 }
+    };
+
+    this.users.push(newAgent);
+
+    // If designated as Team Head, update team record
+    if (isTeamHead) {
+      const team = this.teams.find(t => t.id === teamId);
+      if (team) {
+        this.users.forEach(u => {
+          if (u.teamId === teamId && u.id !== newId) {
+            u.isTeamHead = false;
+          }
+        });
+        team.headId = newId;
+        team.headName = newAgent.name;
+      }
+    }
+
+    // Automatically seed an attendance record for today
+    if (Array.isArray(this.attendance)) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      this.attendance.push({
+        id: 'att-' + Date.now(),
+        userId: newId,
+        userName: newAgent.name,
+        role: newAgent.role,
+        teamId: newAgent.teamId,
+        date: todayStr,
+        clockIn: '10:00 AM',
+        clockOut: null,
+        workHours: 'In Progress',
+        currentStatus: 'Clocked In',
+        status: 'Present',
+        isOnBreak: false
+      });
+      this.saveAttendance();
+    }
+
+    this.saveUsers();
+    this.saveTeams();
+
+    // Broadcast system notification for onboarding
+    this.notifications.unshift({
+      id: 'notif-' + Date.now(),
+      title: 'New Personnel Onboarded: ' + newAgent.name,
+      message: 'Manager Sarah registered ' + newAgent.name + ' (' + newAgent.role + ') to ' + (teamId === 'team-a' ? 'Team A' : 'Team B') + '.',
+      timestamp: new Date().toISOString(),
+      type: 'info',
+      priority: 'Normal',
+      read: false,
+      taskId: null,
+      recipient: 'all'
+    });
+    this.saveNotifications();
+    this.notify('NOTIFICATIONS_UPDATED', this.notifications);
+    this.notify('TEAMS_UPDATED', this.teams);
+    return newAgent;
+  }
+
+  changeUserPassword(currentPassword, newPassword) {
+    if (!this.currentUser) return false;
+    const user = this.users.find(u => u.id === this.currentUser.id || u.email === this.currentUser.email);
+    if (!user) return false;
+
+    if (user.password !== currentPassword) {
+      return false;
+    }
+
+    user.password = newPassword;
+    this.currentUser.password = newPassword;
+    this.saveUsers();
+    this.saveCurrentUser();
+    return true;
+  }
+
+  canEditTaskProgress(task) {
+    if (!this.currentUser || !task) return false;
+    // Once submitted for review or closed, progress cannot be altered by agents
+    const s = (task.status || '').toLowerCase();
+    if (s.includes('review') || s === 'closed' || s === 'completed' || s === 'resolved') {
+      return false;
+    }
+    const aName = (task.assignee && typeof task.assignee === 'object') ? task.assignee.name : task.assignee;
+    const aEmail = (task.assignee && typeof task.assignee === 'object') ? task.assignee.email : null;
+    return (
+      this.currentUser.id === task.assigneeId ||
+      this.currentUser.name === aName ||
+      (aEmail && this.currentUser.email === aEmail)
+    );
+  }
+
+  canManagerCloseTask(task) {
+    if (!this.currentUser || !task) return false;
+    return this.isManager() && task.status !== 'Closed' && task.status !== 'Resolved';
+  }
+
+  managerCloseTask(taskId, resolutionNote) {
+    if (!this.isManager()) return false;
+    const task = this.tasks.find(t => t.id === taskId);
+    if (!task) return false;
+
+    task.status = 'Closed';
+    task.progress = 100;
+    if (!task.discussion) task.discussion = [];
+
+    const noteText = resolutionNote || 'Task closed by Operations Manager.';
+    task.discussion.push({
+      id: 'c-' + Date.now(),
+      author: this.currentUser ? this.currentUser.name : 'Sarah',
+      text: '[MANAGER RESOLUTION]: ' + noteText,
+      timestamp: new Date().toISOString()
+    });
+
+    this.saveTasks();
+    this.notify('TASK_UPDATED', task);
+
+    // Notify assigned agent
+    this.notifications.unshift({
+      id: 'notif-' + Date.now(),
+      title: 'Task Closed by Manager: ' + task.id,
+      message: 'Sarah closed ' + task.id + ': "' + (noteText.length > 50 ? noteText.substring(0, 47) + '...' : noteText) + '"',
+      timestamp: new Date().toISOString(),
+      type: 'success',
+      priority: 'High',
+      read: false,
+      taskId: task.id,
+      recipient: task.assigneeId || 'all'
+    });
+    this.saveNotifications();
+    this.notify('NOTIFICATIONS_UPDATED', this.notifications);
+    return true;
+  }
+
+  resetToBaseline() {
+    try {
+      localStorage.removeItem('op_users');
+      localStorage.removeItem('op_teams');
+      localStorage.removeItem('op_tasks');
+      localStorage.removeItem('op_attendance');
+      localStorage.removeItem('op_leave_requests');
+      localStorage.removeItem('op_notifications');
+    } catch(e){}
+    this.users = JSON.parse(JSON.stringify(MOCK_USERS));
+    this.teams = JSON.parse(JSON.stringify(INITIAL_TEAMS));
+    this.saveUsers();
+    this.saveTeams();
+  }
+
 }
 
 export const store = new StateStore();

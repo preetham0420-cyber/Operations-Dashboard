@@ -20,8 +20,25 @@ class ToastService {
     this.container = container;
   }
 
-  show({ title, message, type = 'info', duration = 4000 }) {
+  show(options, typeFallback = 'info', durationFallback = 4000) {
     this.ensureContainer();
+
+    let title = '';
+    let message = '';
+    let type = typeFallback;
+    let duration = durationFallback;
+
+    if (typeof options === 'string') {
+      message = options;
+      type = typeFallback;
+    } else if (typeof options === 'object' && options !== null) {
+      title = options.title || '';
+      message = options.message || '';
+      type = options.type || typeFallback;
+      duration = options.duration !== undefined ? options.duration : durationFallback;
+    }
+
+    if (!message && !title) return;
 
     const toast = document.createElement('div');
     toast.className = `gesf-toast gesf-toast-${type}`;

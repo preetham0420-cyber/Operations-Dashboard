@@ -1,72 +1,86 @@
-# Operations Dashboard - Internal Team & Task Management
+# Operations Dashboard - Internal Operations & Task Management
 
-A modern, responsive web application for internal team operations, task dispatching, attendance tracking, shift monitoring, and real-time notifications.
+A modern, responsive web application for internal team operations, multi-division task dispatching, attendance tracking, shift monitoring, real-time notifications, and organizational governance.
 
 ---
 
 ## Overview
 
-The Operations Dashboard is built with pure web standards (HTML5, CSS3 with modern design tokens, and modular ES6+ JavaScript). It features reactive client-side state management, `localStorage` persistence, dynamic cache-busting, and role-based permissions for managers and agents.
+The Operations Dashboard is built with pure web standards (HTML5, CSS3 with modern design tokens, and modular ES6+ JavaScript). It features reactive client-side state management, `localStorage` persistence, dynamic cache-busting, and role-based permissions for managers, team heads, and operational agents.
 
 No external backend installation or database configuration is required to run this full-fidelity simulation.
 
 ---
 
-## Team & Roles Structure
+## Organizational Structure: 8 Agents + 1 Manager
 
-The platform provides role-aware capabilities for **Agent Managers** and **Field / Operations Agents**:
+The platform models an executive hierarchy with **Sarah as the Operations Manager (Head of All)** overseeing two operational divisions of 4 agents each:
 
-| Employee | Role | Department | Shift Hours | Email | Default Password |
+```
+👑 Sarah (Operations Manager / Head of All)
+├── 🟦 Team A: Tech & Operations (4 Agents)
+│   ├── ⭐ Alex (Team Head / Technical Lead)
+│   ├── Marcus (Operations Specialist)
+│   ├── Chloe (Systems & DevOps Specialist)
+│   └── Liam (Support & Incident Specialist)
+└── 🟩 Team B: Field & Logistics (4 Agents)
+    ├── ⭐ David (Team Head / Field Supervisor)
+    ├── Elena (Field Operations Agent)
+    ├── Maya (Logistics & Fleet Coordinator)
+    └── Noah (Emergency Dispatch Specialist)
+```
+
+### Complete Personnel Directory
+
+| Employee | Position / Role | Division | Authority | Email | Default Password |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Sarah (Lead)** | **Manager** | Operations Management | 10:00 AM - 5:00 PM | `sarah@company.com` | `Password123!` |
-| **Alex** | **Technical Agent** | Technical Support | 10:00 AM - 5:00 PM | `alex@company.com` | `Password123!` |
-| **David** | **Field Agent** | Field Operations | 10:00 AM - 5:00 PM | `david@company.com` | `Password123!` |
-| **Elena** | **Field Agent** | Field Operations | 10:00 AM - 5:00 PM | `elena@company.com` | `Password123!` |
-| **Marcus** | **Operations Agent** | Operations Support | 10:00 AM - 5:00 PM | `marcus@company.com` | `Password123!` |
+| **Sarah** | **Operations Manager** | **Head of All Teams** | **Super Admin** | `sarah@company.com` | `Password123!` |
+| **Alex** | **Technical Lead** | **Team A** | **Team Head** | `alex@company.com` | `Password123!` |
+| **Marcus** | Operations Specialist | **Team A** | Agent | `marcus@company.com` | `Password123!` |
+| **Chloe** | Systems & DevOps | **Team A** | Agent | `chloe@company.com` | `Password123!` |
+| **Liam** | Support Specialist | **Team A** | Agent | `liam@company.com` | `Password123!` |
+| **David** | **Field Supervisor** | **Team B** | **Team Head** | `david@company.com` | `Password123!` |
+| **Elena** | Field Operations Agent | **Team B** | Agent | `elena@company.com` | `Password123!` |
+| **Maya** | Logistics Coordinator | **Team B** | Agent | `maya@company.com` | `Password123!` |
+| **Noah** | Emergency Dispatch | **Team B** | Agent | `noah@company.com` | `Password123!` |
 
-*(Quick 1-click demo login buttons are available on the Sign In screen to switch between any user instantly.)*
+*(Quick 1-click demo login buttons are available on the Sign In screen to switch between any of the 9 personas instantly.)*
 
 ---
 
-## Core Features & Simulation Modules
+## Core Features & Role Governance
 
-### 1. Attendance & Shift Management
-* **Operations & Field Agents**:
+### 1. Attendance & Leave Approvals (Manager-Exclusive)
+* **Manager (Sarah)**:
+  * Team KPIs: Active/Clocked In, Currently on Break, Late Arrivals Today, and Pending Leaves.
+  * Filterable team attendance table across all 8 agents.
+  * **Pending Leave Queue**: Exclusive authority to **Approve** (green checkmark) or **Reject** (coral cross) leave applications. Actions trigger instant notifications to the applying employee.
+* **Team Heads & Agents**:
   * Live digital clock with active shift timer.
   * 1-click **Clock In** and **Clock Out** tracking with audit logging.
   * **Meal / Rest Break** toggle with real-time indicator.
-  * Personal shift history table with status badges (*Present*, *Late*, *On Break*).
-  * **Time Off Application Modal** with date range selection, day count, and validation.
-* **Agent Manager (Sarah)**:
-  * Team KPIs: **Active / Clocked In**, **Currently on Break**, **Late Arrivals Today**, and **Pending Leaves**.
-  * Filterable team attendance table (by agent and date).
-  * **Pending Leave Queue**: Review incoming leave requests with 1-click **Approve** (green checkmark) and **Reject** (red cross) actions that immediately notify the employee.
+  * Personal shift history table and Leave Balance card with **Time Off Application Modal**.
+  * Zero review/approval controls (leave queues are strictly hidden and protected).
 
-### 2. Task & Workload Management
-* **Global Search & Multi-filtering**:
-  * Real-time query search across Title, Task ID, and Assignee.
-  * Filter chips for Status (*Open*, *In Progress*, *Under Review*, *Resolved*), Priority (*Critical*, *High*, *Medium*, *Low*), and Department.
-* **Dual View Modes**: High-density table view with progress bars, or card grid view.
-* **Create Task Modal**: Form with auto-generated IDs, SLA due-date pickers, and assignee selectors.
+### 2. Task Workload & Assignee-Only Progress Controls
+* **Assignee-Only Progress Slider**:
+  * Only the assigned agent can drag the 0%–100% progress slider and click quick presets (0%, 25%, 50%, 75%, 100%).
+  * For non-assignees (and the Manager), progress controls are locked and read-only with an informative lock badge: `🔒 Progress is locked. Only assigned agent can update progress.`
+* **Manager Force-Close**:
+  * Sarah has an exclusive **"🛡️ Manager Close Task"** action button.
+  * Prompts for closing resolution remarks, sets task to 100% Closed, logs audit entry in discussion, and dispatches a high-priority alert to the assigned agent.
+* **Discussion & Live Notes**:
+  * Real-time progress comments with instant team notifications and deep links.
 
-### 3. Task Detail, Progress & Discussion
-* **Interactive Progress Upgrade**:
-  * Range slider (0% to 100%) and quick presets (**0%**, **25%**, **50%**, **75%**, **100%**).
-  * Automatically synchronizes status (e.g., 100% sets *Resolved*, >0% sets *In Progress*).
-* **Live Discussion & Progress Notes**:
-  * Post progress updates and comments in real-time.
-  * Posts instantly trigger team-wide notifications with direct links back to the task.
-* **Lifecycle Stepper & Chronological Audit Timeline**.
-
-### 4. Notifications Center
-* Categorized alerts with tab switching (*All*, *Unread*, *Read*).
-* Direct task deep-links (**View TSK-XXX ->**) that take you straight to the task detail discussion.
-* Unread counter badges synced live across the top navigation bar and sidebar.
-
-### 5. Responsive Mobile Navigation
-* Mobile drawer navigation with hamburger toggle and backdrop dismiss.
-* Bottom quick-touch bar on mobile viewports.
-* Responsive desktop collapsible sidebar.
+### 3. Settings Hub & Account Security
+* **Appearance & Themes**: 4 curated themes (Dark Slate, Midnight Blue, Crisp Light, OLED Pitch Black).
+* **Security & Change Password**: Embedded in both **Profile** and **Settings** with current password validation, 8+ character strength check, and persistent `localStorage` synchronization.
+* **Team Management (Manager Only)**:
+  * Visual cards for Team A and Team B.
+  * Dropdown selector to appoint/change Team Heads.
+  * 1-click transfer buttons to move agents between Team A and Team B.
+  * **"+ Create New Agent"** modal to onboard new personnel.
+* **System Controls**: Audio alerts and 1-click Demo State Reset.
 
 ---
 
@@ -82,42 +96,3 @@ The platform provides role-aware capabilities for **Agent Managers** and **Field
 python -m http.server 5500 --bind 127.0.0.1
 ```
 Then visit **`http://localhost:5500`** in your browser.
-
----
-
-## Project Structure
-
-```
-Operations-Dashboard/
-|-- index.html                 # Main single-page application shell
-|-- README.md                  # System overview, team structure & setup guide
-|-- docs/
-|   `-- RESEARCH_AND_DESIGN.md  # UI design guidelines, color system & architecture
-|-- css/
-|   |-- design-tokens.css      # HSL color palette, typography & theme variables
-|   |-- layout.css             # App shell, responsive sidebar, mobile navigation drawer
-|   |-- components.css         # Buttons, badges, tables, modal dialogs, toasts
-|   `-- views.css              # Screen-specific layouts, task grids, attendance cards
-`-- js/
-    |-- app.js                 # Router, dynamic view imports with cache-busting
-    |-- services/
-    |   `-- store.js           # Central state store with localStorage & notifications
-    |-- data/
-    |   |-- mock-auth.js       # 5 active team users (Sarah, Alex, David, Elena, Marcus)
-    |   |-- mock-tasks.js      # Tasks dataset with timeline & discussion comments
-    |   |-- mock-attendance.js # Daily attendance logs & leave approval queue
-    |   |-- mock-notifications.js # Alert broadcasts & priority triggers
-    |   `-- mock-activity.js   # Audit stream entries
-    |-- components/
-    |   |-- navigation.js      # Sidebar, topbar, mobile drawer & badge counters
-    |   |-- modal.js           # Accessible dialog controller
-    |   `-- toast.js           # Toast notification engine
-    `-- views/
-        |-- auth-view.js       # Authentication & 1-click demo switcher
-        |-- dashboard-view.js  # Executive metrics & operational pipeline
-        |-- tasks-view.js      # Task catalog with table/card view toggle
-        |-- task-detail-view.js# Interactive progress slider, discussion notes & lifecycle
-        |-- attendance-view.js # Live clock-in, manager review & leave approval queue
-        |-- notifications-view.js # Alerts with read/unread tracking & deep links
-        `-- profile-view.js    # User ID badge, theme switcher & role details
-```

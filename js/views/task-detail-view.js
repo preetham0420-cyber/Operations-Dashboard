@@ -18,7 +18,7 @@ export function renderTaskDetailView(container, params = {}) {
         <div class="card empty-state">
           <h2 class="empty-state-title">Task Not Found</h2>
           <p class="empty-state-text">The requested task ID (${taskId || 'N/A'}) does not exist in active records.</p>
-          <button class="btn btn-primary" id="btn-back-to-tasks">&larr; Return to Tasks List</button>
+          <button class="btn btn-primary" id="btn-back-to-tasks">&larr; Return to Tasks List</div>
         </div>
       </div>
     `;
@@ -31,12 +31,27 @@ export function renderTaskDetailView(container, params = {}) {
     task = store.getTaskById(taskId);
     if (!task) return;
 
+    const canEditProgress = store.canEditTaskProgress(task);
+    const isManager = store.isManager();
+    const canManagerClose = store.canManagerCloseTask(task);
+
     if (!Array.isArray(task.comments)) task.comments = [];
     if (!Array.isArray(task.timeline)) task.timeline = [];
     if (!Array.isArray(task.attachments)) task.attachments = [];
 
     const stageIdx = getStageIndex(task.status);
-    const stages = ['Open', 'In Progress', 'Under Review', 'Resolved'];
+    const stages = [
+      { id: 'Open', label: 'Open', num: '1' },
+      { id: 'Ongoing', label: 'Ongoing', num: '2' },
+      { id: 'In Review', label: 'In Review', num: '3' },
+      { id: 'Closed', label: 'Closed', num: '4' }
+    ];
+
+    const curStatus = (task.status || '').toLowerCase();
+    const isOpen = curStatus === 'open';
+    const isOngoing = curStatus === 'ongoing' || curStatus.includes('progress');
+    const isInReview = curStatus.includes('review');
+    const isClosed = curStatus === 'closed' || curStatus === 'completed' || curStatus === 'resolved';
 
     container.innerHTML = `
       <div class="view-content-wrapper">
@@ -63,6 +78,11 @@ export function renderTaskDetailView(container, params = {}) {
               <span class="font-mono text-lg font-bold text-cyan">${task.id}</span>
               <span class="badge ${getPriorityBadgeClass(task.priority)}">${task.priority} Priority</span>
               <span class="badge ${getStatusBadgeClass(task.status)}">${task.status}</span>
+              ${canManagerClose ? `
+                <button id="btn-manager-force-close" class="btn btn-xs btn-danger-soft" style="margin-left: 8px;" title="Manager Close Task">
+                  🛡️ Manager Close Task
+                </button>
+              ` : ''}
             </div>
             <div class="detail-due-wrap">
               <span class="text-muted text-xs">SLA Target Due:</span>
@@ -75,17 +95,19 @@ export function renderTaskDetailView(container, params = {}) {
 
           <!-- Interactive 4-Stage Operational Lifecycle Stepper -->
           <div class="lifecycle-stepper-wrap">
-            <div class="stepper-title font-mono text-xs text-muted">OPERATIONAL LIFECYCLE STAGE:</div>
+            <div class="stepper-title font-mono text-xs text-muted" style="margin-bottom: var(--space-2); letter-spacing: 0.08em;">OPERATIONAL LIFECYCLE STAGE:</div>
             <div class="lifecycle-stepper">
               ${stages.map((stage, idx) => {
                 const isActive = stageIdx === idx;
                 const isPast = stageIdx > idx;
-                const statusClass = isActive ? 'step-active' : (isPast ? 'step-done' : 'step-upcoming');
+                const statusClass = isActive ? 'current' : (isPast ? 'completed' : 'upcoming');
                 return `
-                  <button type="button" class="stepper-step ${statusClass}" data-set-status="${stage}">
-                    <span class="step-num">${isPast ? '✓' : idx + 1}</span>
-                    <span class="step-text">${stage}</span>
-                  </button>
+                  <div class="lifecycle-step ${statusClass}">
+                    <div class="lifecycle-step-icon">
+                      ${isPast ? '✓' : stage.num}
+                    </div>
+                    <span class="lifecycle-step-text" style="font-weight: ${isActive ? '700' : '500'};">${stage.label}</span>
+                  </div>
                 `;
               }).join('')}
             </div>
@@ -172,32 +194,81 @@ export function renderTaskDetailView(container, params = {}) {
           <div class="detail-right-col">
             <!-- Primary Action Card -->
             <div class="card panel-card panel-action-card">
-              <h3 class="panel-subhead">QUICK STATUS UPDATE</h3>
+              <h3 class="panel-subhead">${isManager ? 'OPERATIONAL CONTROLS (MANAGER)' : 'WORKFLOW ACTIONS'}</h3>
               <div class="action-buttons-stack">
-                ${task.status !== 'In Progress' && task.status !== 'Resolved' ? `
-                  <button class="btn btn-primary btn-block btn-set-status" data-status="In Progress">
-                    <span>Mark as In Progress</span>
-                  </button>
-                ` : ''}
-
-                ${task.status === 'In Progress' ? `
-                  <button class="btn btn-purple btn-block btn-set-status" data-status="Under Review">
-                    <span>Submit for Manager Review</span>
-                  </button>
-                ` : ''}
-
-                ${task.status !== 'Resolved' ? `
-                  <button class="btn btn-emerald btn-block btn-set-status" data-status="Resolved">
-                    <span>Mark Task Completed</span>
-                  </button>
+                ${isManager ? `
+                  <!-- Manager Sarah Controls (Strictly NO Submit for Review, NO Mark Completed) -->
+                  ${isClosed ? `
+                    <div class="resolved-banner">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                      <span>Task closed & verified by Manager Sarah.</span>
+                    </div>
+                    <button class="btn btn-secondary btn-block btn-set-status" data-status="Ongoing" style="margin-top: var(--space-2);">
+                      <span>Reopen Task to Ongoing</span>
+                    </button>
+                  ` : `
+                    ${isInReview ? `
+                      <button id="btn-manager-action-close" class="btn btn-emerald btn-block" style="display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; padding: 12px;">
+                        <span>🛡️ Approve & Close Task (100% Verified)</span>
+                      </button>
+                      <button class="btn btn-secondary btn-block btn-set-status" data-status="Ongoing" style="margin-top: var(--space-2);">
+                        <span>↩ Return to Agent (Reopen for Rework)</span>
+                      </button>
+                    ` : `
+                      <button id="btn-manager-action-close" class="btn btn-danger-soft btn-block" style="display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700;">
+                        <span>🛡️ Manager Close & Resolve Task</span>
+                      </button>
+                      ${isOpen ? `
+                        <button class="btn btn-primary-outline btn-block btn-set-status" data-status="Ongoing" style="margin-top: var(--space-2);">
+                          <span>Dispatch to Ongoing</span>
+                        </button>
+                      ` : ''}
+                    `}
+                  `}
                 ` : `
-                  <div class="resolved-banner">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                    <span>Task completed & resolved.</span>
-                  </div>
-                  <button class="btn btn-secondary btn-block btn-set-status" data-status="In Progress" style="margin-top: var(--space-2);">
-                    <span>Reopen Task</span>
-                  </button>
+                  <!-- Agent Controls -->
+                  ${canEditProgress ? `
+                    ${isOpen ? `
+                      <button class="btn btn-primary btn-block btn-set-status" data-status="Ongoing">
+                        <span>▶ Start Work (Move to Ongoing)</span>
+                      </button>
+                    ` : ''}
+
+                    ${isOngoing ? `
+                      <button class="btn btn-purple btn-block btn-set-status" data-status="In Review" id="btn-submit-review">
+                        <span>📋 Submit for Manager Review</span>
+                      </button>
+                      <div style="font-size: 11px; color: var(--color-text-secondary); text-align: center; margin-top: 6px;">
+                        ⚠️ Once submitted, work is locked and cannot be undone by agents.
+                      </div>
+                    ` : ''}
+
+                    ${isInReview ? `
+                      <div style="padding: 16px; background: rgba(168, 85, 247, 0.12); border: 1px dashed var(--color-purple); border-radius: var(--radius-md); text-align: center;">
+                        <div style="font-size: 1.5rem; margin-bottom: 6px;">⏳</div>
+                        <div style="font-size: var(--text-sm); font-weight: 700; color: var(--color-purple);">Submitted for Manager Review</div>
+                        <div style="font-size: 11px; color: var(--color-text-secondary); margin-top: 4px;">
+                          Locked in review &mdash; cannot be undone or altered by agents. Awaiting Manager Sarah to verify and close.
+                        </div>
+                      </div>
+                    ` : ''}
+
+                    ${isClosed ? `
+                      <div class="resolved-banner">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span>Task completed & closed.</span>
+                      </div>
+                    ` : ''}
+                  ` : `
+                    <div style="padding: 12px; border: 1px dashed var(--color-border); border-radius: var(--radius-md); text-align: center; font-size: var(--text-xs); color: var(--color-text-secondary);">
+                      ${isInReview ? `
+                        <div style="color: var(--color-purple); font-weight: 600;">⏳ In Manager Review</div>
+                        <div style="font-size: 10px; margin-top: 2px;">Assigned to ${task.assignee ? task.assignee.name : 'Agent'}</div>
+                      ` : `
+                        🔒 Read-Only (Assigned to ${task.assignee ? task.assignee.name : 'another agent'})
+                      `}
+                    </div>
+                  `}
                 `}
               </div>
             </div>
@@ -232,14 +303,20 @@ export function renderTaskDetailView(container, params = {}) {
                 </div>
 
                 <div style="margin-top: var(--space-3);">
+                  ${!canEditProgress ? `
+                    <div class="progress-lock-banner" style="display: flex; align-items: center; gap: 8px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); color: #fbbf24; padding: 6px 10px; border-radius: 6px; font-size: 0.75rem; margin-bottom: 8px;">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      <span>Progress is locked. Only assigned agent (<strong>${(task.assignee && task.assignee.name) ? task.assignee.name : (task.assignee || 'Assigned Agent')}</strong>) can update progress and work status.</span>
+                    </div>
+                  ` : ''}
                   <label for="input-task-progress-slider" style="font-size: 0.72rem; color: var(--color-text-muted); display: block; margin-bottom: 4px;">Adjust Progress Slider:</label>
-                  <input type="range" id="input-task-progress-slider" min="0" max="100" step="5" value="${task.progress}" style="width: 100%; cursor: pointer; accent-color: var(--color-cyan);">
+                  <input type="range" id="input-task-progress-slider" min="0" max="100" step="5" value="${task.progress}" ${!canEditProgress ? 'disabled' : ''} style="width: 100%; cursor: ${canEditProgress ? 'pointer' : 'not-allowed'}; opacity: ${canEditProgress ? '1' : '0.45'}; accent-color: var(--color-cyan);">
                   <div style="display: flex; justify-content: space-between; gap: 4px; margin-top: 6px;">
-                    <button type="button" class="btn btn-xs btn-outline btn-quick-prog" data-prog="0">0%</button>
-                    <button type="button" class="btn btn-xs btn-outline btn-quick-prog" data-prog="25">25%</button>
-                    <button type="button" class="btn btn-xs btn-outline btn-quick-prog" data-prog="50">50%</button>
-                    <button type="button" class="btn btn-xs btn-outline btn-quick-prog" data-prog="75">75%</button>
-                    <button type="button" class="btn btn-xs btn-outline btn-quick-prog" data-prog="100">100%</button>
+                    <button type="button" class="btn btn-xs btn-outline btn-quick-prog" ${!canEditProgress ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''} data-prog="0">0%</button>
+                    <button type="button" class="btn btn-xs btn-outline btn-quick-prog" ${!canEditProgress ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''} data-prog="25">25%</button>
+                    <button type="button" class="btn btn-xs btn-outline btn-quick-prog" ${!canEditProgress ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''} data-prog="50">50%</button>
+                    <button type="button" class="btn btn-xs btn-outline btn-quick-prog" ${!canEditProgress ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''} data-prog="75">75%</button>
+                    <button type="button" class="btn btn-xs btn-outline btn-quick-prog" ${!canEditProgress ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''} data-prog="100">100%</button>
                   </div>
                 </div>
               </div>
@@ -276,6 +353,7 @@ export function renderTaskDetailView(container, params = {}) {
   }
 
   function attachListeners() {
+    const canEditProgress = store.canEditTaskProgress(task);
     container.querySelector('#btn-detail-back').onclick = () => {
       navigation.navigate('tasks');
     };
@@ -302,9 +380,24 @@ export function renderTaskDetailView(container, params = {}) {
     });
 
     // Progress Slider
+    // Wire Manager Force Close Button
+    const btnMgrCloses = container.querySelectorAll('#btn-manager-force-close, #btn-manager-action-close');
+    if (btnMgrCloses && btnMgrCloses.length > 0) {
+      btnMgrCloses.forEach(btnMgrClose => {
+      btnMgrClose.addEventListener('click', () => {
+        const note = prompt('Enter manager resolution remarks:', 'Task closed and resolved by Operations Manager.');
+        if (note !== null) {
+          store.managerCloseTask(task.id, note.trim());
+          toast.show('Task ' + task.id + ' successfully closed by Manager.', 'success');
+          render();
+        }
+      });
+      });
+    }
+
     const slider = container.querySelector('#input-task-progress-slider');
     const progDisplay = container.querySelector('#progress-val-display');
-    if (slider) {
+    if (slider && canEditProgress) {
       slider.oninput = () => {
         if (progDisplay) progDisplay.textContent = `${slider.value}%`;
       };
@@ -320,7 +413,7 @@ export function renderTaskDetailView(container, params = {}) {
     }
 
     // Quick Progress Preset Buttons
-    container.querySelectorAll('.btn-quick-prog').forEach(btn => {
+    if (canEditProgress) container.querySelectorAll('.btn-quick-prog').forEach(btn => {
       btn.onclick = () => {
         const val = btn.getAttribute('data-prog');
         store.updateTaskProgress(task.id, val);
@@ -358,8 +451,12 @@ export function renderTaskDetailView(container, params = {}) {
 }
 
 function getStageIndex(status) {
-  const map = { 'Open': 0, 'In Progress': 1, 'Ongoing': 1, 'Under Review': 2, 'Resolved': 3, 'Closed': 3 };
-  return map[status] !== undefined ? map[status] : 0;
+  const s = (status || '').toLowerCase();
+  if (s === 'open') return 0;
+  if (s === 'ongoing' || s.includes('progress')) return 1;
+  if (s.includes('review')) return 2;
+  if (s === 'closed' || s === 'completed' || s === 'resolved') return 3;
+  return 0;
 }
 
 function getPriorityBadgeClass(priority) {
