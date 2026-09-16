@@ -102,3 +102,60 @@
 ### 10. Next-Day Plan (Day 3)
 * Implement server-side authentication endpoints (`POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`).
 * Build authentication and role-based authorization middleware enforcing Manager, Team Leader, and Agent permission boundaries.
+
+---
+
+## Day 3 Progress Report — Authentication, Authorization, Users & Teams
+
+### 1. Work Completed
+* Replaced client-side simulated auth with server-controlled JWT authentication.
+* Implemented token-based session management (`POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`).
+* Built centralized authentication middleware (`authenticateToken`) that validates Bearer tokens and attaches the verified user context.
+* Developed role-based authorization guard (`requireRole`) enforcing the 3-tier hierarchy (`MANAGER`, `TEAM_LEADER`, `AGENT`).
+* Implemented team boundary guard (`requireTeamAccess`) preventing Team Leaders and Agents from accessing other teams' records.
+* Built user directory and team endpoints (`GET /api/users`, `GET /api/users/:id`, `GET /api/teams`, `GET /api/teams/:id`).
+* Documented the formal Role & Permission Matrix (`docs/ROLE_PERMISSION_MATRIX.md`).
+* Created and executed an automated test suite (`backend/tests/day3_auth_rbac.test.js`) verifying authentication, authorization, and team isolation.
+
+### 2. Database Changes
+* None on Day 3. Relational models (`users`, `roles`, `teams`, `departments`) established on Day 2 remained authoritative.
+
+### 3. APIs Implemented
+* `POST /api/auth/login`: Validates credentials with bcrypt, generates signed JWT Bearer tokens, returns sanitized profile.
+* `POST /api/auth/logout`: Ends session with standardized success confirmation.
+* `GET /api/auth/me`: Returns authenticated user identity, role, department, and team.
+* `GET /api/users`: Role-aware employee directory (Managers see all, Team Leaders see own team).
+* `GET /api/users/:id`: Specific employee profile details.
+* `GET /api/teams`: List of squads scoped to authorized visibility.
+* `GET /api/teams/:id`: Squad details protected by team boundary middleware.
+
+### 4. Frontend Changes
+* None on Day 3. Frontend prototype remains in local mode on `http://localhost:5500` until Day 6 adapter integration.
+
+### 5. Tests Performed
+* Executed automated test suite (`backend/tests/day3_auth_rbac.test.js`) — 17/17 tests passing:
+  - Valid Manager login (Sarah) returning JWT token and MANAGER role.
+  - Valid Team Leader login (Alex) returning JWT token and TEAM_LEADER role.
+  - Password hash exclusion test confirming hashes are never returned in response bodies.
+  - Invalid password test returning `401 Unauthorized` with `INVALID_CREDENTIALS`.
+  - Missing token test returning `401 Unauthorized` with `UNAUTHORIZED`.
+  - Protected session validation on `GET /api/auth/me`.
+  - Team boundary test: Team Leader accessing own team (`200 OK`).
+  - Cross-team rejection test: Team Leader accessing another team (`403 Forbidden` with `CROSS_TEAM_ACCESS_DENIED`).
+  - Manager org-wide test: Manager accessing another team (`200 OK`).
+
+### 6. Issues Identified
+* Need to ensure Team Leader cross-team tampering cannot bypass authorization by altering URL route parameters or query parameters.
+
+### 7. Issues Resolved
+* Created unified `requireTeamAccess` middleware that dynamically inspects `req.params.id`, `req.params.teamId`, `req.body.teamId`, and `req.query.teamId`, restricting non-managers strictly to `req.user.teamId`.
+
+### 8. Current Blockers
+* None.
+
+### 9. Support Required
+* None.
+
+### 10. Next-Day Plan (Day 4)
+* Implement task management REST APIs (`GET /api/tasks`, `POST /api/tasks`, `PATCH /api/tasks/:id`, `PATCH /api/tasks/:id/status`, `PATCH /api/tasks/:id/progress`, `PATCH /api/tasks/:id/assignee`, `comments`, `activity`).
+* Implement `GET /api/dashboard/summary` with dynamic SQL calculations from PostgreSQL.
