@@ -1,0 +1,205 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  code        String   @unique // MANAGER, TEAM_LEADER, AGENT
+  name        String   // Operations Manager, Team Leader, Agent
+  description String?
+  users       User[]
+  createdAt   DateTime @default(now())
+
+  @@map("roles")
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique // Tech & Operations, Field & Logistics
+  description String?
+  teams       Team[]
+  users       User[]
+  createdAt   DateTime @default(now())
+
+  @@map("departments")
+}
+
+model Team {
+  id           String       @id
+  name         String
+  displayName  String?
+  departmentId String?
+  department   Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  leaderId     String?      @unique
+  leader       User?        @relation("TeamLeader", fields: [leaderId], references: [id], onDelete: SetNull)
+  members      User[]       @relation("TeamMembers")
+  tasks        Task[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@map("teams")
+}
+
+model User {
+  id                 String             @id
+  employeeCode       String             @unique
+  name               String
+  email              String             @unique
+  password           String
+  roleId             String
+  role               Role               @relation(fields: [roleId], references: [id])
+  jobTitle           String             // e.g. Operations Manager, Technical Lead, Field Agent
+  departmentId       String?
+  department         Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  teamId             String?
+  team               Team?              @relation("TeamMembers", fields: [teamId], references: [id], onDelete: SetNull)
+  ledTeam            Team?              @relation("TeamLeader")
+  shift              String?            @default("10:00 AM - 5:00 PM")
+  phone              String?
+  location           String?
+  avatar             String?
+  isActive           Boolean            @default(true)
+  assignedTasks      Task[]             @relation("AssignedTasks")
+  createdTasks       Task[]             @relation("CreatedTasks")
+  taskComments       TaskComment[]
+  taskActivities     TaskActivity[]
+  attendanceRecords  AttendanceRecord[]
+  leaveRequests      LeaveRequest[]     @relation("UserLeaves")
+  reviewedLeaves     LeaveRequest[]     @relation("ReviewedLeaves")
+  notifications      Notification[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@map("users")
+}
+
+model Task {
+  id          String          @id
+  taskCode    String          @unique // TSK-101, TSK-102
+  title       String
+  summary     String?
+  description String?
+  priority    String          @default("Medium") // Low, Medium, High, Critical
+  status      String          @default("OPEN")   // OPEN, IN_PROGRESS, UNDER_REVIEW, CLOSED
+  progress    Int             @default(0)        // Constrained 0 - 100
+  dueDate     DateTime?
+  assigneeId  String?
+  assignee    User?           @relation("AssignedTasks", fields: [assigneeId], references: [id], onDelete: SetNull)
+  teamId      String?
+  team        Team?           @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  createdById String?
+  createdBy   User?           @relation("CreatedTasks", fields: [createdById], references: [id], onDelete: SetNull)
+  checklists  TaskChecklist[]
+  comments    TaskComment[]
+  activities  TaskActivity[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("tasks")
+}
+
+model TaskChecklist {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  title     String
+  completed Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("task_checklists")
+}
+
+model TaskComment {
+  id         String   @id @default(cuid())
+  taskId     String
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorName String?
+  comment    String
+  createdAt  DateTime @default(now())
+
+  @@map("task_comments")
+}
+
+model TaskActivity {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String   // CREATED, STATUS_CHANGE, PROGRESS_UPDATE, REASSIGNED, COMMENT_ADDED
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@map("task_activity")
+}
+
+model AttendanceRecord {
+  id            String            @id @default(cuid())
+  userId        String
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date          String            // YYYY-MM-DD
+  clockIn       String?           // "09:50 AM"
+  clockOut      String?
+  currentStatus String            @default("Clocked In") // Clocked In, On Break, Clocked Out, Absent
+  status        String            @default("Present")    // Present, Late, Absent
+  workHours     String?           @default("In Progress")
+  totalHours    Float             @default(0.0)
+  breaks        AttendanceBreak[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([userId, date])
+  @@map("attendance_records")
+}
+
+model AttendanceBreak {
+  id           String           @id @default(cuid())
+  attendanceId String
+  attendance   AttendanceRecord @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  startTime    DateTime         @default(now())
+  endTime      DateTime?
+  durationMins Int?
+  createdAt    DateTime         @default(now())
+
+  @@map("attendance_breaks")
+}
+
+model LeaveRequest {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation("UserLeaves", fields: [userId], references: [id], onDelete: Cascade)
+  leaveType    String    // Annual Leave, Medical Leave, Personal Leave
+  startDate    String    // YYYY-MM-DD
+  endDate      String    // YYYY-MM-DD
+  daysCount    Int       @default(1)
+  reason       String?
+  status       String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  reviewedById String?
+  reviewedBy   User?     @relation("ReviewedLeaves", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  reviewNotes  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("leave_requests")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  category  String   @default("info") // task, leave, attendance, security
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
