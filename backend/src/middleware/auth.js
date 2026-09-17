@@ -126,3 +126,6 @@ export function requireTeamAccess(req, res, next) {
 
   next();
 }
+
+export const requireManager = requireRole(['MANAGER']);
+export const requireTeamLeaderOrManager = requireRole(['MANAGER', 'TEAM_LEADER']);

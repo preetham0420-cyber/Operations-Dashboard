@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import teamRoutes from './routes/teams.js';
+import taskRoutes from './routes/tasks.js';
+import dashboardRoutes from './routes/dashboard.js';
 
 dotenv.config();
 
@@ -65,6 +67,8 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/teams', teamRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Global error handler (Standard JSON error envelope)
 app.use((err, req, res, next) => {
