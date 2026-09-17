@@ -234,6 +234,17 @@ router.post('/', authenticateToken, requireTeamLeaderOrManager, async (req, res)
       }
     });
 
+    if (assigneeId) {
+      await prisma.notification.create({
+        data: {
+          userId: assigneeId,
+          title: 'New Task Assigned',
+          message: `You were assigned task ${generatedTaskCode}: ${title.trim()}`,
+          category: 'task'
+        }
+      });
+    }
+
     res.status(201).json({
       success: true,
       data: newTask
@@ -454,7 +465,7 @@ router.patch('/:id/progress', authenticateToken, async (req, res) => {
   }
 });
 
-// PATCH /api/tasks/:id/assignee - Reassign task
+// PATCH /api/tasks/:id/assignee - Controlled Requirement Change: Team Leader reassigns OPEN task strictly within own team
 router.patch('/:id/assignee', authenticateToken, requireTeamLeaderOrManager, async (req, res) => {
   try {
     const { assigneeId } = req.body;
@@ -487,17 +498,40 @@ router.patch('/:id/assignee', authenticateToken, requireTeamLeaderOrManager, asy
 
     const userRole = req.user.role.code;
 
+    // Day 5 Controlled Requirement Change Rules:
     if (userRole === 'TEAM_LEADER') {
+      // Rule 1: Task must belong to Team Leader's own squad
       if (task.teamId && task.teamId !== req.user.teamId) {
         return res.status(403).json({
           success: false,
-          error: { code: 'CROSS_TEAM_ACCESS_DENIED', message: 'You can only reassign tasks within your own team.' }
+          error: { code: 'CROSS_TEAM_ACCESS_DENIED', message: 'Team Leaders cannot reassign tasks outside their assigned team.' }
         });
       }
+
+      // Rule 2: Only OPEN tasks can be reassigned by Team Leader
+      if (task.status !== 'OPEN') {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'REASSIGNMENT_LOCKED', message: 'Controlled Requirement: Team Leaders can only reassign tasks currently in OPEN status.' }
+        });
+      }
+
+      // Rule 3: Target user must be an AGENT
+      if (targetUser.role?.code !== 'AGENT') {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_ASSIGNEE_ROLE', message: 'Team Leaders can only reassign operational tasks to Agents.' }
+        });
+      }
+
+      // Rule 4: Target user MUST belong to the SAME team (Cross-team reassignment explicitly rejected)
       if (targetUser.teamId !== req.user.teamId) {
         return res.status(403).json({
           success: false,
-          error: { code: 'CROSS_TEAM_REASSIGNMENT_DENIED', message: 'Team Leaders can only reassign tasks to Agents within their own team.' }
+          error: {
+            code: 'CROSS_TEAM_REASSIGNMENT_DENIED',
+            message: 'Controlled Requirement Enforced: Team Leaders can only reassign tasks to Agents within their own team. Cross-team reassignment is strictly prohibited.'
+          }
         });
       }
     }
@@ -510,7 +544,7 @@ router.patch('/:id/assignee', authenticateToken, requireTeamLeaderOrManager, asy
           create: {
             userId: req.user.id,
             action: 'REASSIGNED',
-            detail: 'Task reassigned to ' + targetUser.name + ' by ' + req.user.name
+            detail: 'Task reassigned to ' + targetUser.name + ' (' + (targetUser.role?.name || 'Agent') + ') by ' + req.user.name
           }
         }
       },
@@ -518,6 +552,16 @@ router.patch('/:id/assignee', authenticateToken, requireTeamLeaderOrManager, asy
         assignee: { select: { id: true, name: true, role: true, avatar: true } },
         team: true,
         activities: { orderBy: { createdAt: 'desc' } }
+      }
+    });
+
+    // Notify new assignee
+    await prisma.notification.create({
+      data: {
+        userId: targetUser.id,
+        title: 'Task Assigned',
+        message: `Task ${task.taskCode || task.id} (${task.title}) has been assigned to you by ${req.user.name}.`,
+        category: 'task'
       }
     });
 

@@ -1,129 +1,281 @@
 import { Router } from 'express';
 import prisma from '../db.js';
-import { authenticateToken, requireManager } from '../middleware/auth.js';
+import { authenticateToken, requireTeamLeaderOrManager } from '../middleware/auth.js';
 
 const router = Router();
 
-// Get leaves
+// GET /api/leaves/me - Current user's submitted leaves
+router.get('/me', authenticateToken, async (req, res) => {
+  try {
+    const leaves = await prisma.leaveRequest.findMany({
+      where: { userId: req.user.id },
+      include: {
+        reviewedBy: { select: { id: true, name: true, role: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json({
+      success: true,
+      data: leaves
+    });
+  } catch (err) {
+    console.error('Error fetching personal leaves:', err);
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to retrieve leave records.' }
+    });
+  }
+});
+
+// GET /api/leaves/pending - Pending leaves requiring supervisory approval
+router.get('/pending', authenticateToken, requireTeamLeaderOrManager, async (req, res) => {
+  try {
+    const userRole = req.user.role.code;
+    const where = { status: 'PENDING' };
+
+    // Team Leader boundary: Only view pending leaves for their squad
+    if (userRole === 'TEAM_LEADER') {
+      where.user = { teamId: req.user.teamId };
+    }
+
+    const pendingLeaves = await prisma.leaveRequest.findMany({
+      where,
+      include: {
+        user: { select: { id: true, name: true, email: true, avatar: true, role: true, team: true } }
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    res.json({
+      success: true,
+      data: pendingLeaves
+    });
+  } catch (err) {
+    console.error('Error fetching pending leaves:', err);
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to retrieve pending leave requests.' }
+    });
+  }
+});
+
+// GET /api/leaves - General leave directory (role-scoped)
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    let where = {};
-    if (!req.user.isManager) {
+    const userRole = req.user.role.code;
+    const where = {};
+
+    if (userRole === 'MANAGER') {
+      // Sees all
+    } else if (userRole === 'TEAM_LEADER') {
+      where.user = { teamId: req.user.teamId };
+    } else {
       where.userId = req.user.id;
     }
 
     const leaves = await prisma.leaveRequest.findMany({
       where,
       include: {
-        user: { select: { id: true, name: true, role: true, department: true, avatar: true } },
+        user: { select: { id: true, name: true, avatar: true, role: true, team: true } },
         reviewedBy: { select: { id: true, name: true } }
       },
       orderBy: { createdAt: 'desc' }
     });
 
-    res.json({ leaves });
+    res.json({
+      success: true,
+      data: leaves
+    });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch leaves' });
+    console.error('Error fetching leaves:', err);
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to retrieve leaves.' }
+    });
   }
 });
 
-// Apply for leave
+// POST /api/leaves - Submit a new leave request
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { leaveType, startDate, endDate, durationDays, reason } = req.body;
+    const { leaveType, startDate, endDate, daysCount, reason } = req.body;
+
     if (!leaveType || !startDate || !endDate) {
-      return res.status(400).json({ error: 'Leave type, start date, and end date are required' });
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'leaveType, startDate, and endDate are required.' }
+      });
     }
 
-    const leave = await prisma.leaveRequest.create({
+    const newLeave = await prisma.leaveRequest.create({
       data: {
         userId: req.user.id,
         leaveType,
         startDate,
         endDate,
-        durationDays: parseInt(durationDays, 10) || 1,
+        daysCount: parseInt(daysCount, 10) || 1,
         reason: reason || '',
-        status: 'pending'
+        status: 'PENDING'
       },
-      include: { user: true }
+      include: {
+        user: { select: { id: true, name: true, teamId: true } }
+      }
     });
 
-    // Notify Operations Managers
-    const managers = await prisma.user.findMany({ where: { isManager: true } });
-    for (const mgr of managers) {
+    // Notify managers and relevant team leader
+    const supervisors = await prisma.user.findMany({
+      where: {
+        OR: [
+          { role: { code: 'MANAGER' } },
+          { role: { code: 'TEAM_LEADER' }, teamId: req.user.teamId }
+        ]
+      }
+    });
+
+    for (const sup of supervisors) {
       await prisma.notification.create({
         data: {
-          recipientId: mgr.id,
+          userId: sup.id,
           title: 'New Leave Request',
-          message: `${req.user.name} submitted a ${leaveType} request for ${startDate} to ${endDate}.`,
+          message: `${req.user.name} submitted a ${leaveType} request (${startDate} to ${endDate}).`,
           category: 'leave'
         }
       });
     }
 
-    res.status(201).json({ leave });
+    res.status(201).json({
+      success: true,
+      data: newLeave
+    });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to apply leave' });
+    console.error('Error submitting leave:', err);
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to submit leave request.' }
+    });
   }
 });
 
-// Approve leave (strictly manager only)
-router.patch('/:id/approve', authenticateToken, requireManager, async (req, res) => {
+// PATCH /api/leaves/:id/approve - Approve leave request
+router.patch('/:id/approve', authenticateToken, requireTeamLeaderOrManager, async (req, res) => {
   try {
-    const { reviewNotes } = req.body;
-    const leave = await prisma.leaveRequest.update({
+    const { reviewNotes } = req.body || {};
+    const leave = await prisma.leaveRequest.findUnique({
       where: { id: req.params.id },
-      data: {
-        status: 'approved',
-        reviewedById: req.user.id,
-        reviewedAt: new Date(),
-        reviewNotes: reviewNotes || 'Approved by Operations Manager'
-      },
       include: { user: true }
     });
 
+    if (!leave) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'LEAVE_NOT_FOUND', message: 'Leave request not found.' }
+      });
+    }
+
+    const userRole = req.user.role.code;
+    if (userRole === 'TEAM_LEADER' && leave.user.teamId !== req.user.teamId) {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'CROSS_TEAM_ACCESS_DENIED', message: 'Team Leaders cannot approve leaves for other squads.' }
+      });
+    }
+
+    const updated = await prisma.leaveRequest.update({
+      where: { id: leave.id },
+      data: {
+        status: 'APPROVED',
+        reviewedById: req.user.id,
+        reviewedAt: new Date(),
+        reviewNotes: reviewNotes || 'Approved by supervisor'
+      },
+      include: {
+        user: { select: { id: true, name: true } },
+        reviewedBy: { select: { id: true, name: true, role: true } }
+      }
+    });
+
+    // Notify employee
     await prisma.notification.create({
       data: {
-        recipientId: leave.userId,
+        userId: leave.userId,
         title: 'Leave Request Approved',
-        message: `Your ${leave.leaveType} has been approved by ${req.user.name}.`,
+        message: `Your ${leave.leaveType} request for ${leave.startDate} has been APPROVED by ${req.user.name}.`,
         category: 'leave'
       }
     });
 
-    res.json({ leave });
+    res.json({
+      success: true,
+      data: updated
+    });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to approve leave' });
+    console.error('Error approving leave:', err);
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to approve leave request.' }
+    });
   }
 });
 
-// Reject leave (strictly manager only)
-router.patch('/:id/reject', authenticateToken, requireManager, async (req, res) => {
+// PATCH /api/leaves/:id/reject - Reject leave request
+router.patch('/:id/reject', authenticateToken, requireTeamLeaderOrManager, async (req, res) => {
   try {
-    const { reviewNotes } = req.body;
-    const leave = await prisma.leaveRequest.update({
+    const { reviewNotes } = req.body || {};
+    const leave = await prisma.leaveRequest.findUnique({
       where: { id: req.params.id },
-      data: {
-        status: 'rejected',
-        reviewedById: req.user.id,
-        reviewedAt: new Date(),
-        reviewNotes: reviewNotes || 'Declined per operational scheduling requirements'
-      },
       include: { user: true }
     });
 
+    if (!leave) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'LEAVE_NOT_FOUND', message: 'Leave request not found.' }
+      });
+    }
+
+    const userRole = req.user.role.code;
+    if (userRole === 'TEAM_LEADER' && leave.user.teamId !== req.user.teamId) {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'CROSS_TEAM_ACCESS_DENIED', message: 'Team Leaders cannot reject leaves for other squads.' }
+      });
+    }
+
+    const updated = await prisma.leaveRequest.update({
+      where: { id: leave.id },
+      data: {
+        status: 'REJECTED',
+        reviewedById: req.user.id,
+        reviewedAt: new Date(),
+        reviewNotes: reviewNotes || 'Operational requirement conflict'
+      },
+      include: {
+        user: { select: { id: true, name: true } },
+        reviewedBy: { select: { id: true, name: true, role: true } }
+      }
+    });
+
+    // Notify employee
     await prisma.notification.create({
       data: {
-        recipientId: leave.userId,
-        title: 'Leave Request Declined',
-        message: `Your ${leave.leaveType} was declined by ${req.user.name}.`,
+        userId: leave.userId,
+        title: 'Leave Request Rejected',
+        message: `Your ${leave.leaveType} request for ${leave.startDate} was not approved: ${updated.reviewNotes}`,
         category: 'leave'
       }
     });
 
-    res.json({ leave });
+    res.json({
+      success: true,
+      data: updated
+    });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to reject leave' });
+    console.error('Error rejecting leave:', err);
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to reject leave request.' }
+    });
   }
 });
 

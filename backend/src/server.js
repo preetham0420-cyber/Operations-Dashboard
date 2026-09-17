@@ -7,6 +7,9 @@ import userRoutes from './routes/users.js';
 import teamRoutes from './routes/teams.js';
 import taskRoutes from './routes/tasks.js';
 import dashboardRoutes from './routes/dashboard.js';
+import attendanceRoutes from './routes/attendance.js';
+import leaveRoutes from './routes/leaves.js';
+import notificationRoutes from './routes/notifications.js';
 
 dotenv.config();
 
@@ -69,6 +72,9 @@ app.use('/api/users', userRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/leaves', leaveRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Global error handler (Standard JSON error envelope)
 app.use((err, req, res, next) => {

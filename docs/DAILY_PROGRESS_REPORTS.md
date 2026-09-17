@@ -220,3 +220,72 @@
 ### 10. Next-Day Plan (Day 5)
 * Implement remaining operational workflows: Attendance tracking (`/api/attendance`), Leave management (`/api/leaves`), and Notifications (`/api/notifications`).
 * Implement Controlled Requirement Change: Allow Team Leader to reassign OPEN tasks strictly between agents of their own squad, rejecting cross-team reassignment attempts with 403 Forbidden.
+
+---
+
+## Day 5 Progress Report — Attendance, Leaves, Notifications & Controlled Requirement Change
+
+### 1. Work Completed
+* Migrated Attendance Tracking (`/api/attendance`) to PostgreSQL, providing shift clock-in, clock-out, break tracking, and team roster observability.
+* Implemented Leave Management (`/api/leaves`) with employee submission and supervisory review workflows (approval/rejection) role-protected for Managers and Team Leaders.
+* Implemented In-App Notifications (`/api/notifications`) delivering real-time operational notifications (task assignments, leave approvals, shift tracking) and unread counts.
+* Implemented the **Controlled Requirement Change**:
+  - Allowed a Team Leader to reassign an `OPEN` task between Agents belonging to the same squad.
+  - Strictly prevented reassignment to members of another team with `403 Forbidden` (`CROSS_TEAM_REASSIGNMENT_DENIED`).
+  - Enforced lifecycle state locks: Team Leaders cannot reassign tasks that have already transitioned to `IN_PROGRESS` or `UNDER_REVIEW` (`400 Bad Request` `REASSIGNMENT_LOCKED`).
+  - Maintained organization-wide override capabilities for Managers.
+* Created and executed automated test suite (`backend/tests/day5_operations.test.js`) verifying 38/38 assertions (100% pass rate).
+
+### 2. Database Changes
+* Leveraged relational tables established on Day 2: `attendance_records`, `attendance_breaks`, `leave_requests`, `notifications`.
+* All state changes persist directly to PostgreSQL with relational integrity.
+
+### 3. APIs Implemented
+* Attendance:
+  - `GET /api/attendance/me`: Personal shift status, today's log, and historical entries.
+  - `POST /api/attendance/clock-in`: Shift initiation.
+  - `POST /api/attendance/clock-out`: Shift conclusion with duration calculation.
+  - `POST /api/attendance/break/start`: Break session tracking.
+  - `POST /api/attendance/break/end`: Break duration calculation.
+  - `GET /api/attendance/team`: Role-scoped team shift roster.
+* Leave Management:
+  - `GET /api/leaves/me`: Personal leave history.
+  - `POST /api/leaves`: Leave request submission.
+  - `GET /api/leaves/pending`: Role-guarded queue of pending requests.
+  - `PATCH /api/leaves/:id/approve`: Approval workflow with notification.
+  - `PATCH /api/leaves/:id/reject`: Rejection workflow with notification.
+* Notifications:
+  - `GET /api/notifications`: Feed with unread badge counter.
+  - `PATCH /api/notifications/:id/read`: Single notification read state.
+  - `PATCH /api/notifications/read-all`: Bulk read confirmation.
+
+### 4. Frontend Changes
+* None on Day 5. Frontend remains clean until Day 6 integration.
+
+### 5. Tests Performed
+* Automated test suite (`backend/tests/day5_operations.test.js`): 38/38 passed.
+  - Shift clock-in, break start/end, and clock-out cycles.
+  - Personal and team attendance roster visibility.
+  - Leave submission, pending queue access control, and approval workflows.
+  - Notification dispatch and read state mutations.
+  - Controlled Requirement Change:
+    * Team Leader reassigns OPEN task within own team (`200 OK`).
+    * Cross-team reassignment rejected (`403 Forbidden`).
+    * Reassignment of IN_PROGRESS task rejected (`400 Bad Request`).
+    * Manager organization-wide reassignment permitted (`200 OK`).
+
+### 6. Issues Identified
+* Querying relations on Prisma `User` model required referencing `attendanceRecords` rather than property shorthand `attendance`.
+
+### 7. Issues Resolved
+* Standardized relation selector in `backend/src/routes/attendance.js` to `attendanceRecords`.
+
+### 8. Current Blockers
+* None.
+
+### 9. Support Required
+* None.
+
+### 10. Next-Day Plan (Day 6)
+* Wire frontend `store.js` via `js/services/api.js` adapter to PostgreSQL backend APIs (`auth`, `tasks`, `attendance`, `leaves`, `notifications`, `dashboard`).
+* Conduct full end-to-end integration testing and security audit review.
