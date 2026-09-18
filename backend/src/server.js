@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import rateLimit from 'express-rate-limit';
 
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
@@ -16,6 +17,35 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Security & Rate Limiting
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: {
+      code: 'RATE_LIMIT_EXCEEDED',
+      message: 'Too many requests from this client, please try again later.'
+    }
+  }
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: {
+      code: 'AUTH_RATE_LIMIT_EXCEEDED',
+      message: 'Too many login attempts from this client, please try again later.'
+    }
+  }
+});
+
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
@@ -23,6 +53,8 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use('/api/', generalLimiter);
+app.use('/api/auth/login', authLimiter);
 
 // Root Landing & Status Page
 app.get('/', (req, res) => {

@@ -3,13 +3,14 @@
  */
 
 import { store } from './services/store.js';
+import { api } from './services/api.js';
 import { navigation } from './components/navigation.js';
-import { modal } from './components/modal.js';
+import { modal } from './components/modal.js?v=1789727496038';
 import { toast } from './components/toast.js';
 
 window.appNavigation = navigation;
 
-import { renderAuthView } from './views/auth-view.js';
+import { renderAuthView } from './views/auth-view.js?v=1789727496038';
 import { renderDashboardView } from './views/dashboard-view.js';
 
 class Application {
@@ -77,6 +78,33 @@ class Application {
   async renderView(viewName, params = {}) {
     const viewContainer = document.getElementById('view-container');
     if (!viewContainer) return;
+
+    // Full-stack PostgreSQL live sync
+    if (api.getToken()) {
+      try {
+        if (viewName === 'dashboard') {
+          await Promise.allSettled([
+            store.fetchTasksFromBackend(),
+            store.fetchNotificationsFromBackend(),
+            store.fetchAttendanceFromBackend(),
+            store.fetchDashboardSummary()
+          ]);
+        } else if (viewName === 'tasks' || viewName === 'task-detail') {
+          await store.fetchTasksFromBackend();
+        } else if (viewName === 'attendance') {
+          await Promise.allSettled([
+            store.fetchAttendanceFromBackend(),
+            store.fetchLeavesFromBackend()
+          ]);
+        } else if (viewName === 'notifications') {
+          await store.fetchNotificationsFromBackend();
+        } else if (viewName === 'settings') {
+          await store.fetchLeavesFromBackend();
+        }
+      } catch (syncErr) {
+        console.warn('[app] Background sync warning:', syncErr.message);
+      }
+    }
 
     try {
       switch (viewName) {
