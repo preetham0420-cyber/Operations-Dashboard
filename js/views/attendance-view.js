@@ -231,7 +231,7 @@ function renderAgentAttendanceView(container) {
               ` : myLeaves.map(lr => `
                 <div class="leave-mini-item">
                   <div class="leave-mini-header">
-                    <strong>${lr.leaveType} (${lr.daysCount || lr.days || 1}d)</strong>
+                    <strong>${lr.leaveType || lr.type || "Leave"} (${lr.daysCount || lr.days || 1}d)</strong>
                     <span class="badge badge-xs ${lr.status === 'Approved' ? 'badge-resolved' : (lr.status === 'Pending' ? 'badge-high' : 'badge-critical')}">
                       ${lr.status}
                     </span>
@@ -557,7 +557,7 @@ function renderManagerAttendanceView(container) {
                     </div>
 
                     <div class="leave-type-pill">
-                      <span>${req.leaveType}</span> &bull; <strong>${req.daysCount || req.days || 1} Day(s)</strong>
+                      <span>${req.leaveType || req.type || "Annual Leave"}</span> &bull; <strong>${req.daysCount || req.days || 1} Day(s)</strong>
                     </div>
 
                     <div class="leave-dates font-mono text-xs">

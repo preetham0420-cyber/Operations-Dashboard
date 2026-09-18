@@ -18,7 +18,8 @@ export function renderTasksView(container, initialFilters = {}) {
   let statusFilter = filters.status || 'All';
   let priorityFilter = filters.priority || 'All';
   let deptFilter = filters.department || 'All';
-  let assigneeFilter = isManager ? 'All' : user.email; // Default to Agent's own tasks for agents
+  const userEmail = (user && user.email) ? user.email : '';
+  let assigneeFilter = isManager ? 'All' : (userEmail || 'All'); // Default to Agent's own tasks for agents
   let scopeMode = isManager ? 'all' : 'my'; // 'my' (My Tasks) vs 'all' (Team Catalog)
   let sortBy = 'dueDate';
   let sortOrder = 'asc';
@@ -28,11 +29,16 @@ export function renderTasksView(container, initialFilters = {}) {
     let allList = [...store.getTasks()];
     let list = allList;
 
-    // Agent scoping: If not manager, strictly restrict to agent's assigned tasks
-    if (!isManager) {
-      list = allList.filter(t => t.assignee.email === user.email);
+    // Agent scoping: If not manager, show agent's assigned tasks or all if none assigned
+    if (!isManager && userEmail) {
+      const myCount = allList.filter(t => t.assignee && t.assignee.email === userEmail).length;
+      if (myCount > 0 && scopeMode === 'my') {
+        list = allList.filter(t => t.assignee && t.assignee.email === userEmail);
+      } else {
+        list = allList;
+      }
     } else if (assigneeFilter !== 'All') {
-      list = allList.filter(t => t.assignee.email === assigneeFilter);
+      list = allList.filter(t => t.assignee && t.assignee.email === assigneeFilter);
     }
 
     // Search Logic: filters within the accessible list
@@ -42,7 +48,7 @@ export function renderTasksView(container, initialFilters = {}) {
         t.title.toLowerCase().includes(q) ||
         t.id.toLowerCase().includes(q) ||
         t.summary.toLowerCase().includes(q) ||
-        t.assignee.name.toLowerCase().includes(q) ||
+        (t.assignee && t.assignee.name && t.assignee.name.toLowerCase().includes(q)) ||
         t.department.toLowerCase().includes(q)
       );
     }
@@ -94,7 +100,7 @@ export function renderTasksView(container, initialFilters = {}) {
   function render() {
     const tasks = getFilteredTasks();
     const allTasks = store.getTasks();
-    const myTasksCount = allTasks.filter(t => t.assignee.email === user.email).length;
+    const myTasksCount = allTasks.filter(t => t.assignee && user && t.assignee.email === user.email).length;
     const totalTeamCount = allTasks.length;
 
     const openCount = tasks.filter(t => t.status === 'Open').length;
@@ -236,7 +242,7 @@ export function renderTasksView(container, initialFilters = {}) {
     return `
       <div class="tasks-grid">
         ${tasks.map(task => {
-          const isMyTask = task.assignee.email === user.email;
+          const isMyTask = task.assignee && user && task.assignee.email === user.email;
           return `
             <div class="card task-grid-card ${isMyTask ? 'my-task-card' : ''}" data-task-inspect="${task.id}">
               <div class="grid-card-header">
@@ -279,8 +285,8 @@ export function renderTasksView(container, initialFilters = {}) {
 
               <div class="grid-card-footer">
                 <div class="table-assignee">
-                  <img src="${task.assignee.avatar}" alt="${task.assignee.name}" class="assignee-avatar-xs">
-                  <span class="assignee-name">${getSimpleName(task.assignee.name)} ${isMyTask ? '(You)' : ''}</span>
+                  <img src="${task.assignee ? (task.assignee.avatar || '') : ''}" alt="${task.assignee ? task.assignee.name : 'User'}" class="assignee-avatar-xs">
+                  <span class="assignee-name">${task.assignee ? getSimpleName(task.assignee.name) : 'Unassigned'} ${isMyTask ? '(You)' : ''}</span>
                 </div>
                 <button class="btn btn-xs btn-primary" data-task-inspect="${task.id}">Inspect &rarr;</button>
               </div>

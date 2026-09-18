@@ -9,6 +9,7 @@ import { INITIAL_TASKS } from '../data/mock-tasks.js';
 import { INITIAL_ATTENDANCE, INITIAL_LEAVE_REQUESTS } from '../data/mock-attendance.js';
 import { INITIAL_NOTIFICATIONS } from '../data/mock-notifications.js';
 import { INITIAL_ACTIVITY } from '../data/mock-activity.js';
+import { api } from './api.js'; // Day 6: PostgreSQL backend adapter
 
 // SHA-256 Hashing helper using browser-native Web Crypto API with safe fallback
 export async function sha256(message) {
@@ -196,8 +197,56 @@ class StateStore {
   async login(email, password) {
     try {
       if (!email || !password) return false;
-      const cleanEmail = email.trim().toLowerCase();
 
+      // --- Day 6: Try PostgreSQL backend first ---
+      try {
+        const isOnline = await api.checkHealth();
+        if (isOnline) {
+          const data = await api.login(email, password);
+          if (data && data.success && data.data) {
+            const bu = data.data.user;
+            this.currentUser = {
+              id: bu.id,
+              name: bu.name,
+              email: bu.email,
+              role: (bu.role && bu.role.name) ? bu.role.name : (bu.role || 'Field Agent'),
+              department: (bu.department && bu.department.name) ? bu.department.name : (bu.department || 'Operations'),
+              teamId: bu.teamId,
+              isManager: !!(bu.role && bu.role.code === 'MANAGER'),
+              isTeamHead: !!(bu.role && bu.role.code === 'TEAM_LEADER'),
+              avatar: bu.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+              employeeCode: bu.employeeCode,
+              shift: bu.shift,
+              phone: bu.phone,
+              location: bu.location,
+              _fromBackend: true
+            };
+            this.isAuthenticated = true;
+            localStorage.setItem('ops_current_user', JSON.stringify(this.currentUser));
+            localStorage.setItem('ops_is_authenticated', 'true');
+            await Promise.allSettled([
+              this.fetchTasksFromBackend(),
+              this.fetchNotificationsFromBackend(),
+              this.fetchAttendanceFromBackend(),
+              this.fetchLeavesFromBackend()
+            ]);
+            this.notify('AUTH_LOGIN', this.currentUser);
+            console.log('[store] Authenticated via PostgreSQL backend');
+            return true;
+          }
+          // Server online but rejected credentials
+          return false;
+        }
+      } catch (backendErr) {
+        if (backendErr.status === 401 || backendErr.status === 400) {
+          console.warn('[store] Backend rejected credentials:', backendErr.message);
+          return false;
+        }
+        console.warn('[store] Backend unreachable, using offline mock auth');
+      }
+
+      // --- Offline mock fallback ---
+      const cleanEmail = email.trim().toLowerCase();
       const user = MOCK_USERS.find(u => {
         const uEmail = u.email.toLowerCase();
         return uEmail === cleanEmail ||
@@ -218,13 +267,13 @@ class StateStore {
         } catch (hErr) {
           isMatch = (password === "Password123!");
         }
-
         if (isMatch) {
           this.currentUser = { ...user };
           this.isAuthenticated = true;
           localStorage.setItem('ops_current_user', JSON.stringify(this.currentUser));
           localStorage.setItem('ops_is_authenticated', 'true');
           this.notify('AUTH_LOGIN', this.currentUser);
+          console.log('[store] Authenticated via offline mock');
           return true;
         }
       }
@@ -269,7 +318,12 @@ class StateStore {
   }
 
   getTaskById(id) {
-    return this.tasks.find(t => t.id === id);
+    if (!id) return null;
+    const clean = String(id).trim().toLowerCase();
+    return this.tasks.find(t => 
+      (t.id && t.id.toLowerCase() === clean) || 
+      (t.taskCode && t.taskCode.toLowerCase() === clean)
+    );
   }
 
   createTask(taskData) {
@@ -313,6 +367,15 @@ class StateStore {
       avatar: this.currentUser.avatar
     });
     this.notify('TASK_CREATED', newTask);
+    if (api.getToken()) {
+      api.createTask({
+        title: taskData.title,
+        description: taskData.description,
+        priority: taskData.priority,
+        dueDate: taskData.dueDate,
+        assigneeId: taskData.assignee?.id || (this.users.find(u => u.email === taskData.assignee?.email)?.id)
+      }).catch(err => console.warn('[store] PostgreSQL createTask failed:', err.message));
+    }
     return newTask;
   }
 
@@ -344,6 +407,9 @@ class StateStore {
 
     this.saveTasks();
     this.notify('TASK_UPDATED', task);
+    if (api.getToken()) {
+      api.updateTaskProgress(task.id, p).catch(err => console.warn('[store] PostgreSQL updateTaskProgress failed:', err.message));
+    }
 
     // Create notification for progress update
     this.notifications.unshift({
@@ -408,6 +474,9 @@ class StateStore {
       avatar: authorAvatar
     });
     this.notify('TASK_UPDATED', task);
+    if (api.getToken()) {
+      api.updateTaskStatus(task.id, newStatus).catch(err => console.warn('[store] PostgreSQL updateTaskStatus failed:', err.message));
+    }
     return true;
   }
 
@@ -534,6 +603,9 @@ class StateStore {
       avatar: this.currentUser?.avatar
     });
     this.notify('ATTENDANCE_UPDATED', record);
+    if (api.getToken()) {
+      api.clockIn().then(() => this.fetchAttendanceFromBackend()).catch(err => console.warn('[store] PostgreSQL clockIn failed:', err.message));
+    }
     return record;
   }
 
@@ -563,6 +635,9 @@ class StateStore {
       avatar: this.currentUser?.avatar
     });
     this.notify('ATTENDANCE_UPDATED', record);
+    if (api.getToken()) {
+      api.clockOut().then(() => this.fetchAttendanceFromBackend()).catch(err => console.warn('[store] PostgreSQL clockOut failed:', err.message));
+    }
     return record;
   }
 
@@ -586,6 +661,10 @@ class StateStore {
       avatar: this.currentUser?.avatar
     });
     this.notify('ATTENDANCE_UPDATED', record);
+    if (api.getToken()) {
+      const act = record.isOnBreak ? api.startBreak() : api.endBreak();
+      act.then(() => this.fetchAttendanceFromBackend()).catch(err => console.warn('[store] PostgreSQL toggleBreak failed:', err.message));
+    }
     return record;
   }
 
@@ -620,6 +699,15 @@ class StateStore {
     this.saveNotifications();
 
     this.notify('LEAVE_REQUEST_SUBMITTED', newRequest);
+    if (api.getToken()) {
+      api.submitLeave({
+        leaveType: leaveData.leaveType || 'Personal Leave',
+        startDate: leaveData.startDate,
+        endDate: leaveData.endDate,
+        daysCount: parseInt(leaveData.daysCount || leaveData.days || 1, 10),
+        reason: leaveData.reason || ''
+      }).then(() => this.fetchLeavesFromBackend()).catch(err => console.warn('[store] PostgreSQL submitLeave failed:', err.message));
+    }
     return newRequest;
   }
 
@@ -645,6 +733,9 @@ class StateStore {
     this.saveNotifications();
 
     this.notify('LEAVE_STATUS_CHANGED', req);
+    if (api.getToken()) {
+      api.approveLeave(requestId, 'Approved by Operations Manager.').then(() => this.fetchLeavesFromBackend()).catch(err => console.warn('[store] PostgreSQL approveLeave failed:', err.message));
+    }
     return true;
   }
 
@@ -670,6 +761,9 @@ class StateStore {
     this.saveNotifications();
 
     this.notify('LEAVE_STATUS_CHANGED', req);
+    if (api.getToken()) {
+      api.rejectLeave(requestId, 'Rejected by Operations Manager.').then(() => this.fetchLeavesFromBackend()).catch(err => console.warn('[store] PostgreSQL rejectLeave failed:', err.message));
+    }
     return true;
   }
 
@@ -741,6 +835,9 @@ class StateStore {
       notif.read = !notif.read;
       this.saveNotifications();
       this.notify('NOTIFICATIONS_UPDATED', this.notifications);
+      if (api.getToken() && notif.read) {
+        api.markNotificationRead(id).catch(err => console.warn('[store] PostgreSQL markNotificationRead failed:', err.message));
+      }
     }
   }
 
@@ -749,6 +846,9 @@ class StateStore {
     visible.forEach(n => n.read = true);
     this.saveNotifications();
     this.notify('NOTIFICATIONS_UPDATED', this.notifications);
+    if (api.getToken()) {
+      api.markAllNotificationsRead().catch(err => console.warn('[store] PostgreSQL markAllNotificationsRead failed:', err.message));
+    }
   }
 
   saveNotifications() {
@@ -1049,6 +1149,375 @@ class StateStore {
     this.teams = JSON.parse(JSON.stringify(INITIAL_TEAMS));
     this.saveUsers();
     this.saveTeams();
+  }
+
+  // =========================================================
+  // Day 6: Async Backend Data Fetchers
+  // These methods call the PostgreSQL backend (api.js).
+  // Called from views to get live data. Store state is updated
+  // in place and subscribers are notified.
+  // =========================================================
+
+  /**
+   * Fetch tasks from backend and sync to local state.
+   * Views should await this then call store.getTasks() for the data.
+   */
+  async fetchTasksFromBackend(filters = {}) {
+    try {
+      const data = await api.getTasks(filters);
+      if (data && data.success && Array.isArray(data.data)) {
+        const mapStatus = (s) => {
+          const norm = (s || '').toUpperCase().replace(/\s+/g, '_');
+          if (norm === 'IN_PROGRESS' || norm === 'ONGOING') return 'Ongoing';
+          if (norm === 'CLOSED' || norm === 'RESOLVED') return 'Closed';
+          if (norm === 'UNDER_REVIEW') return 'Under Review';
+          return 'Open';
+        };
+        const mapPriority = (p) => {
+          const norm = (p || '').toUpperCase();
+          if (norm === 'CRITICAL') return 'Critical';
+          if (norm === 'HIGH') return 'High';
+          if (norm === 'LOW') return 'Low';
+          return 'Medium';
+        };
+
+        this.tasks = data.data.map(t => {
+          const comments = (t.comments || []).map(c => ({
+            id: c.id,
+            author: c.author ? c.author.name : 'Operations Agent',
+            avatar: c.author ? (c.author.avatar || '') : '',
+            role: (c.author && c.author.role) ? (c.author.role.name || c.author.role) : 'Agent',
+            text: c.content || c.text || '',
+            timestamp: c.createdAt
+          }));
+          const timeline = (t.activities || []).map(a => ({
+            id: a.id,
+            author: a.user ? a.user.name : 'System',
+            message: a.description,
+            timestamp: a.createdAt,
+            type: a.action === 'COMMENT' ? 'comment' : 'action'
+          }));
+
+          return {
+            id: t.id,
+            taskCode: t.taskCode,
+            title: t.title || t.taskCode,
+            summary: t.summary || t.description || t.title,
+            description: t.description || '',
+            priority: mapPriority(t.priority),
+            status: mapStatus(t.status),
+            department: (t.department && t.department.name) ? t.department.name : (t.team?.name || 'Operations'),
+            assignee: t.assignee ? {
+              id: t.assignee.id,
+              name: t.assignee.name,
+              email: t.assignee.email,
+              avatar: t.assignee.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+              role: (t.assignee.role && t.assignee.role.name) ? t.assignee.role.name : (t.assignee.role || 'Agent')
+            } : {
+              id: 'unassigned',
+              name: 'Unassigned',
+              email: '',
+              avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+              role: 'Unassigned'
+            },
+            teamId: t.teamId,
+            dueDate: t.dueDate,
+            createdDate: t.createdAt,
+            location: t.location || 'Sector Central',
+            progress: t.progress || 0,
+            comments,
+            discussion: comments,
+            timeline,
+            attachments: t.attachments || [],
+            _fromBackend: true
+          };
+        });
+        this.saveTasks();
+        this.notify('TASKS_UPDATED', this.tasks);
+        return this.tasks;
+      }
+    } catch (err) {
+      console.warn('[store] fetchTasksFromBackend failed:', err.message);
+    }
+    return this.tasks;
+  }
+
+  /**
+   * Fetch notifications from backend and sync.
+   */
+  async fetchNotificationsFromBackend() {
+    try {
+      const data = await api.getNotifications();
+      if (data && data.success && Array.isArray(data.data)) {
+        this.notifications = data.data.map(n => ({
+          id: n.id,
+          title: n.title,
+          message: n.message,
+          timestamp: n.createdAt,
+          type: n.category || 'info',
+          read: n.read,
+          priority: n.priority || 'Normal',
+          recipient: n.userId,
+          _fromBackend: true
+        }));
+        this.saveNotifications();
+        this.notify('NOTIFICATIONS_UPDATED', this.notifications);
+        return this.notifications;
+      }
+    } catch (err) {
+      console.warn('[store] fetchNotificationsFromBackend failed:', err.message);
+    }
+    return this.notifications;
+  }
+
+  /**
+   * Fetch attendance records from backend.
+   */
+  async fetchAttendanceFromBackend() {
+    try {
+      const data = await api.getMyAttendance();
+      let record = null;
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      if (data && data.success && data.data) {
+        const { today } = data.data;
+        const existingIdx = this.attendance.findIndex(
+          a => (a.userId === this.currentUser?.id || a.userEmail === this.currentUser?.email) && a.date === todayStr
+        );
+
+        record = today ? {
+          id: today.id || ('att-' + todayStr),
+          userId: today.userId,
+          userEmail: this.currentUser?.email,
+          userName: this.currentUser?.name,
+          role: this.currentUser?.role,
+          date: today.date || todayStr,
+          clockIn: today.clockIn,
+          clockOut: today.clockOut,
+          currentStatus: today.currentStatus || (today.clockIn ? (today.clockOut ? 'Clocked Out' : 'Active') : 'Offline'),
+          status: today.status || (today.clockIn ? 'Present' : 'Absent'),
+          isOnBreak: today.currentStatus === 'On Break',
+          totalHours: today.workHours || (today.clockIn && !today.clockOut ? 'In Progress' : '0.0h'),
+          breaks: today.breaks || [],
+          _fromBackend: true
+        } : null;
+
+        if (record) {
+          if (existingIdx !== -1) {
+            this.attendance[existingIdx] = record;
+          } else {
+            this.attendance.unshift(record);
+          }
+          this.saveAttendance();
+          this.notify('ATTENDANCE_UPDATED', record);
+        }
+      }
+
+      if (this.isManager()) {
+        try {
+          const teamData = await api.getTeamAttendance();
+          if (teamData && teamData.success && Array.isArray(teamData.data)) {
+            teamData.data.forEach(member => {
+              const att = member.attendanceRecords?.[0];
+              const existingIdx = this.attendance.findIndex(a => (a.userId === member.id || a.userEmail === member.email) && a.date === todayStr);
+              const mRecord = {
+                id: att?.id || ('att-' + member.id + '-' + todayStr),
+                userId: member.id,
+                userEmail: member.email,
+                userName: member.name,
+                role: member.role?.name || 'Agent',
+                date: todayStr,
+                clockIn: att?.clockIn || null,
+                clockOut: att?.clockOut || null,
+                currentStatus: att?.currentStatus || (att?.clockIn ? (att.clockOut ? 'Clocked Out' : 'Active') : 'Offline'),
+                status: att?.status || (att?.clockIn ? 'Present' : 'Absent'),
+                isOnBreak: att?.currentStatus === 'On Break',
+                totalHours: att?.workHours || (att?.clockIn && !att.clockOut ? 'In Progress' : '0.0h'),
+                breaks: att?.breaks || [],
+                _fromBackend: true
+              };
+              if (existingIdx !== -1) {
+                this.attendance[existingIdx] = mRecord;
+              } else {
+                this.attendance.push(mRecord);
+              }
+            });
+            this.saveAttendance();
+          }
+        } catch (teamErr) {
+          console.warn('[store] fetchTeamAttendance failed:', teamErr.message);
+        }
+      }
+
+      return record;
+    } catch (err) {
+      console.warn('[store] fetchAttendanceFromBackend failed:', err.message);
+    }
+    return null;
+  }
+
+  /**
+   * Backend clock-in (PostgreSQL).
+   */
+  async clockInBackend() {
+    try {
+      const data = await api.clockIn();
+      if (data && data.success) {
+        await this.fetchAttendanceFromBackend();
+        return data.data;
+      }
+    } catch (err) {
+      console.warn('[store] clockInBackend failed:', err.message);
+    }
+    // Fallback to mock
+    return this.clockIn();
+  }
+
+  /**
+   * Backend clock-out (PostgreSQL).
+   */
+  async clockOutBackend() {
+    try {
+      const data = await api.clockOut();
+      if (data && data.success) {
+        await this.fetchAttendanceFromBackend();
+        return data.data;
+      }
+    } catch (err) {
+      console.warn('[store] clockOutBackend failed:', err.message);
+    }
+    return this.clockOut();
+  }
+
+  /**
+   * Backend break toggle (PostgreSQL).
+   */
+  async toggleBreakBackend() {
+    try {
+      // Determine current status
+      const todayStr = new Date().toISOString().split('T')[0];
+      const record = this.attendance.find(
+        a => (a.userId === this.currentUser?.id || a.userEmail === this.currentUser?.email) && a.date === todayStr
+      );
+      const isOnBreak = record && record.isOnBreak;
+      const data = isOnBreak ? await api.endBreak() : await api.startBreak();
+      if (data && data.success) {
+        await this.fetchAttendanceFromBackend();
+        return data.data;
+      }
+    } catch (err) {
+      console.warn('[store] toggleBreakBackend failed:', err.message);
+    }
+    return this.toggleBreak();
+  }
+
+  /**
+   * Fetch leaves from backend.
+   */
+  async fetchLeavesFromBackend() {
+    try {
+      const data = await api.getLeaves();
+      if (data && data.success && Array.isArray(data.data)) {
+        this.leaveRequests = data.data.map(l => ({
+          id: l.id,
+          userEmail: l.user ? l.user.email : '',
+          userName: l.user ? l.user.name : '',
+          leaveType: l.leaveType,
+          startDate: l.startDate,
+          endDate: l.endDate,
+          reason: l.reason,
+          status: l.status,
+          reviewedBy: l.approvedBy ? l.approvedBy.name : null,
+          reviewNotes: l.reviewNotes,
+          appliedOn: l.createdAt,
+          _fromBackend: true
+        }));
+        this.saveLeaveRequests();
+        this.notify('LEAVES_UPDATED', this.leaveRequests);
+        return this.leaveRequests;
+      }
+    } catch (err) {
+      console.warn('[store] fetchLeavesFromBackend failed:', err.message);
+    }
+    return this.leaveRequests;
+  }
+
+  /**
+   * Submit leave to backend.
+   */
+  async submitLeaveBackend(leaveData) {
+    try {
+      const data = await api.submitLeave(leaveData);
+      if (data && data.success) {
+        await this.fetchLeavesFromBackend();
+        return data.data;
+      }
+    } catch (err) {
+      console.warn('[store] submitLeaveBackend failed:', err.message);
+    }
+    return this.submitLeaveRequest(leaveData);
+  }
+
+  /**
+   * Fetch dashboard summary from backend.
+   */
+  async fetchDashboardSummary() {
+    try {
+      const data = await api.getDashboardSummary();
+      if (data && data.success) {
+        return data.data;
+      }
+    } catch (err) {
+      console.warn('[store] fetchDashboardSummary failed:', err.message);
+    }
+    return null;
+  }
+
+  /**
+   * Mark notification as read via backend.
+   */
+  async markNotificationReadBackend(id) {
+    try {
+      await api.markNotificationRead(id);
+    } catch {}
+    // Also update local state
+    const notif = this.notifications.find(n => n.id === id);
+    if (notif) {
+      notif.read = true;
+      this.saveNotifications();
+      this.notify('NOTIFICATIONS_UPDATED', this.notifications);
+    }
+  }
+
+  /**
+   * Mark all notifications as read via backend.
+   */
+  async markAllNotificationsReadBackend() {
+    try {
+      await api.markAllNotificationsRead();
+    } catch {}
+    this.notifications.forEach(n => { n.read = true; });
+    this.saveNotifications();
+    this.notify('NOTIFICATIONS_UPDATED', this.notifications);
+  }
+
+
+  /**
+   * Universal synchronizer for full-stack state.
+   */
+  async syncWithBackend() {
+    if (!api.getToken()) return;
+    try {
+      await Promise.allSettled([
+        this.fetchTasksFromBackend(),
+        this.fetchNotificationsFromBackend(),
+        this.fetchAttendanceFromBackend(),
+        this.fetchLeavesFromBackend(),
+        this.fetchDashboardSummary()
+      ]);
+    } catch (err) {
+      console.warn('[store] syncWithBackend error:', err.message);
+    }
   }
 
 }

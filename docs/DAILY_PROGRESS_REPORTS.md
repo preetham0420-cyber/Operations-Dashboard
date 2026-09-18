@@ -289,3 +289,101 @@
 ### 10. Next-Day Plan (Day 6)
 * Wire frontend `store.js` via `js/services/api.js` adapter to PostgreSQL backend APIs (`auth`, `tasks`, `attendance`, `leaves`, `notifications`, `dashboard`).
 * Conduct full end-to-end integration testing and security audit review.
+
+---
+
+## Day 6 Progress Report — Full-Stack PostgreSQL API Integration & Client State Synchronization
+
+### 1. Work Completed
+* Implemented the client-side API service adapter (`js/services/api.js`) bridging all frontend UI views directly to the PostgreSQL Express backend on `http://localhost:5000/api`.
+* Refactored `store.js` to synchronize all operational state (tasks, attendance, leaves, notifications, user profiles) with the PostgreSQL database.
+* Added defensive null-safe rendering across all task views (`tasks-view.js`, `dashboard-view.js`, `task-detail-view.js`), ensuring tasks with unassigned personnel render cleanly without exceptions.
+* Linked real-time attendance clock-in, clock-out, and break management to database persistence.
+* Integrated leave submission and manager approval/rejection workflows with immediate status updates.
+* Verified that all 13 operational tasks load accurately with proper status badges, priority markers, and completion progress bars.
+
+### 2. Database Changes
+* All operational mutations (task progress, status transitions, attendance timestamps, leave decisions) persist directly to PostgreSQL 18.
+* Verified data integrity across foreign keys and relational constraints.
+
+### 3. APIs Integrated
+* Authentication: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
+* Tasks: `GET /api/tasks`, `PATCH /api/tasks/:id/status`, `PATCH /api/tasks/:id/progress`, `PATCH /api/tasks/:id/assignee`, `POST /api/tasks/:id/comments`
+* Attendance: `GET /api/attendance/me`, `POST /api/attendance/clock-in`, `POST /api/attendance/clock-out`, `POST /api/attendance/break/start`, `POST /api/attendance/break/end`
+* Leaves: `GET /api/leaves/me`, `POST /api/leaves`, `GET /api/leaves/pending`, `PATCH /api/leaves/:id/approve`, `PATCH /api/leaves/:id/reject`
+* Notifications: `GET /api/notifications`, `PATCH /api/notifications/:id/read`, `PATCH /api/notifications/read-all`
+
+### 4. Frontend Changes
+* Added `js/services/api.js` as the single source of truth for backend communication.
+* Implemented cache-busting query strings on ES module imports in `js/app.js` and `index.html`.
+* Enhanced error handling with toast notifications for API disconnects or validation errors.
+
+### 5. Tests Performed
+* Full integration test executing task lifecycle transitions and verifying database row updates.
+* Shift clocking cycle validation with timestamp recording.
+* Verified all 13 tasks display in task catalog with active search and filter controls.
+
+### 6. Issues Identified
+* Task `tsk-109` had `assignee: null`, which previously triggered an unhandled exception when evaluating `t.assignee.email`.
+
+### 7. Issues Resolved
+* Applied optional chaining and fallback text (`t.assignee?.name || 'Unassigned'`) throughout all task rendering components.
+
+### 8. Current Blockers
+* None.
+
+### 9. Support Required
+* None.
+
+### 10. Next-Day Plan (Day 7)
+* Implement real SMTP email delivery for two-factor password recovery OTPs.
+* Polish the in-page verification UI with strict zero on-screen OTP exposure.
+* Complete final end-to-end regression testing and deliver project milestones.
+
+---
+
+## Day 7 Progress Report — Real SMTP Email OTP Recovery, Security Hardening & Final Delivery
+
+### 1. Work Completed
+* Implemented production-grade email service (`backend/src/services/mailer.js`) using Nodemailer with Gmail SMTP SSL (port 465).
+* Designed and deployed a dedicated, in-page 3-step Password Recovery workflow (Request -> Email Verification -> Password Reset) replacing legacy modal popups.
+* Enforced strict enterprise security: verification OTPs are dispatched exclusively to the user's Gmail inbox and are **never** rendered on the webpage or exposed in client API payloads.
+* Created an autofocusing, clean OTP input field with placeholder `• • • • • •`, requiring direct manual entry of the code received via email.
+* Implemented password hashing (bcrypt) and updated credentials directly in PostgreSQL upon authorized OTP verification.
+* Executed end-to-end headless browser testing, confirming clean UI presentation, accurate email dispatch, and seamless user experience.
+* Prepared comprehensive testing documentation and architecture records.
+
+### 2. Database Changes
+* Updated user password hashes upon successful OTP validation.
+* Prisma schema synchronized and validated with PostgreSQL 18.
+
+### 3. APIs Implemented & Secured
+* `POST /api/auth/forgot-password`: Generates cryptographically secure 6-digit OTP, stores temporary session with 10-minute expiry, and dispatches email via Gmail SMTP.
+* `POST /api/auth/verify-otp`: Authorizes password reset session upon matching entered code with server-held OTP.
+* `POST /api/auth/reset-password`: Validates authorization, hashes new password with bcrypt, updates PostgreSQL database, and clears temporary OTP session.
+
+### 4. Frontend Changes
+* Redesigned `js/views/auth-view.js` to feature dedicated in-page recovery screens without popup modals.
+* Eliminated on-screen OTP previews, master test codes, and pre-filled digits from the client interface.
+* Added live status notifications for email dispatch and verification feedback.
+
+### 5. Tests Performed
+* Live Gmail SMTP dispatch verification (Google Message ID verified).
+* Headless Chrome visual verification capturing clean in-page OTP verification view.
+* Password reset roundtrip test confirming updated credentials can sign in to the dashboard.
+* Regression testing of Task Management, Shift Attendance, Leave Workflows, and Dashboard metrics.
+
+### 6. Issues Identified
+* Initial prototype briefly displayed test codes on-screen, conflicting with two-factor security principles.
+
+### 7. Issues Resolved
+* Completely removed on-screen code displays; the OTP is strictly delivered to the user's Gmail inbox and manually entered.
+
+### 8. Current Blockers
+* None. All functional and non-functional requirements are fully achieved.
+
+### 9. Support Required
+* None. Ready for final evaluation and project delivery.
+
+### 10. Project Status
+* **100% COMPLETE**. All 7 daily milestones successfully developed, integrated, verified, and documented.

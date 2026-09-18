@@ -12,7 +12,9 @@ export function renderDashboardView(container) {
   const isManager = store.isManager();
   const allTasks = store.getTasks();
 
-  const relevantTasks = isManager ? allTasks : allTasks.filter(t => t.assignee.email === user.email);
+  const userEmail = (user && user.email) ? user.email : '';
+  const myAssigned = allTasks.filter(t => t.assignee && t.assignee.email === userEmail);
+  const relevantTasks = (isManager || myAssigned.length === 0) ? allTasks : myAssigned;
 
   // Accurate breakdown calculations for Open, Ongoing, Closed
   const totalAssigned = relevantTasks.length;
@@ -135,7 +137,7 @@ export function renderDashboardView(container) {
                       <div class="urgent-task-meta">
                         <span class="badge badge-xs ${getPriorityBadgeClass(task.priority)}">${task.priority}</span>
                         <span class="badge badge-xs ${getStatusBadgeClass(task.status)}">${task.status}</span>
-                        <span class="text-muted">&bull; Assigned: ${getSimpleName(task.assignee.name)}</span>
+                        <span class="text-muted">&bull; Assigned: ${task.assignee ? getSimpleName(task.assignee.name) : 'Unassigned'}</span>
                       </div>
                       <!-- Explicit Task Progress Bar -->
                       <div class="task-row-progress-wrap">

@@ -385,7 +385,10 @@
   margin-bottom: var(--space-1);
 }
 
-.form-control {
+.form-control,
+.form-input {
+  width: 100%;
+  box-sizing: border-box;
   width: 100%;
   padding: 10px 12px;
   background-color: var(--color-bg-surface-raised);
@@ -398,13 +401,15 @@
   transition: all var(--transition-fast);
 }
 
-.form-control:focus {
+.form-control:focus,
+.form-input:focus {
   border-color: var(--color-border-focus);
   box-shadow: 0 0 0 2px var(--color-cyan-glow);
   background-color: var(--color-bg-surface);
 }
 
-.form-control.is-invalid {
+.form-control.is-invalid,
+.form-input.is-invalid {
   border-color: var(--color-red) !important;
   box-shadow: 0 0 0 2px var(--color-red-glow) !important;
 }

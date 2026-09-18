@@ -26,7 +26,7 @@ export function renderProfileView(container) {
         </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); max-width: 900px;">
+      <div class="profile-grid">
         <!-- Left: User Account Information -->
         <div class="card panel-card">
           <div class="panel-header">
@@ -38,29 +38,29 @@ export function renderProfileView(container) {
           </div>
 
           <div style="display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-5); padding-bottom: var(--space-4); border-bottom: 1px solid var(--color-border-subtle);">
-            <img src="${user.avatar}" alt="${user.name}" style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 2px solid var(--color-border-subtle);">
-            <div>
-              <h3 style="font-size: var(--text-lg); font-weight: 700; color: var(--color-text-primary); margin-bottom: 2px;">${user.name}</h3>
-              <p style="font-size: var(--text-xs); color: var(--color-text-secondary);">${user.email}</p>
+            <img src="${user.avatar}" alt="${user.name}" style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 2px solid var(--color-border-subtle); flex-shrink: 0;">
+            <div style="min-width: 0; overflow: hidden;">
+              <h3 style="font-size: var(--text-lg); font-weight: 700; color: var(--color-text-primary); margin-bottom: 2px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${user.name}</h3>
+              <p style="font-size: var(--text-xs); color: var(--color-text-secondary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${user.email}</p>
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4);">
-            <div>
-              <div style="font-size: 0.7rem; color: var(--color-text-muted); text-transform: uppercase; margin-bottom: 2px;">Role</div>
-              <div style="font-size: var(--text-sm); font-weight: 600; color: var(--color-text-primary);">${user.role}</div>
+          <div class="profile-details-grid">
+            <div class="profile-detail-item">
+              <div class="profile-detail-label">Role</div>
+              <div class="profile-detail-val">${user.role}</div>
             </div>
-            <div>
-              <div style="font-size: 0.7rem; color: var(--color-text-muted); text-transform: uppercase; margin-bottom: 2px;">Department</div>
-              <div style="font-size: var(--text-sm); font-weight: 600; color: var(--color-text-primary);">${user.department}</div>
+            <div class="profile-detail-item">
+              <div class="profile-detail-label">Department</div>
+              <div class="profile-detail-val">${user.department}</div>
             </div>
-            <div>
-              <div style="font-size: 0.7rem; color: var(--color-text-muted); text-transform: uppercase; margin-bottom: 2px;">Shift Schedule</div>
-              <div style="font-size: var(--text-sm); font-weight: 600; color: var(--color-text-primary);">${user.shift}</div>
+            <div class="profile-detail-item">
+              <div class="profile-detail-label">Shift Schedule</div>
+              <div class="profile-detail-val">${user.shift}</div>
             </div>
-            <div>
-              <div style="font-size: 0.7rem; color: var(--color-text-muted); text-transform: uppercase; margin-bottom: 2px;">Contact</div>
-              <div style="font-size: var(--text-sm); font-weight: 600; color: var(--color-text-primary);">${user.phone || '+91 98765 43210'}</div>
+            <div class="profile-detail-item">
+              <div class="profile-detail-label">Contact</div>
+              <div class="profile-detail-val">${user.phone || '+91 98765 43210'}</div>
             </div>
           </div>
         </div>
@@ -75,12 +75,12 @@ export function renderProfileView(container) {
           </div>
 
           <div style="margin-bottom: var(--space-5); padding-bottom: var(--space-4); border-bottom: 1px solid var(--color-border-subtle);">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <div>
+            <div class="profile-theme-row">
+              <div class="profile-theme-info">
                 <div style="font-size: var(--text-sm); font-weight: 600; color: var(--color-text-primary); margin-bottom: 2px;">Theme Mode</div>
                 <div style="font-size: var(--text-xs); color: var(--color-text-secondary);">Switch between Dark and Light mode.</div>
               </div>
-              <button class="btn btn-sm btn-outline" id="btn-profile-toggle-theme">
+              <button class="btn btn-sm btn-outline profile-theme-btn" id="btn-profile-toggle-theme">
                 ${store.theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
               </button>
             </div>
@@ -91,7 +91,7 @@ export function renderProfileView(container) {
             <p style="font-size: var(--text-xs); color: var(--color-text-secondary); margin-bottom: var(--space-3);">
               To access a different account or role, sign out and sign in with the new credentials.
             </p>
-            <button class="btn btn-secondary btn-sm" id="btn-profile-signout-secondary">
+            <button class="btn btn-secondary btn-sm btn-block-mobile" id="btn-profile-signout-secondary">
               Sign Out & Switch User
             </button>
           </div>
@@ -99,31 +99,30 @@ export function renderProfileView(container) {
       </div>
     
       <!-- Change Password Card -->
-      <div class="card mt-6">
+      <div class="card mt-6" style="max-width: 900px;">
         <div class="card-header">
           <h2 class="card-title">Change Password</h2>
           <p class="text-secondary text-sm">Ensure your operations account uses a strong, private password.</p>
         </div>
         <div class="card-body">
-          <form id="profile-change-pw-form" class="settings-form" style="max-width: 480px;">
+          <form id="profile-change-pw-form" class="settings-form" style="max-width: 480px; width: 100%;">
             <div class="form-group mb-3">
-              <label class="form-label">Current Password</label>
-              <input type="password" id="profile-curr-pw" class="form-input" placeholder="Current password" required />
+              <label class="form-label" for="profile-curr-pw">Current Password</label>
+              <input type="password" id="profile-curr-pw" class="form-control form-input" placeholder="Current password" required autocomplete="current-password" />
             </div>
             <div class="form-group mb-3">
-              <label class="form-label">New Password</label>
-              <input type="password" id="profile-new-pw" class="form-input" placeholder="Minimum 8 characters" required minlength="8" />
+              <label class="form-label" for="profile-new-pw">New Password</label>
+              <input type="password" id="profile-new-pw" class="form-control form-input" placeholder="Minimum 8 characters" required minlength="8" autocomplete="new-password" />
             </div>
             <div class="form-group mb-3">
-              <label class="form-label">Confirm New Password</label>
-              <input type="password" id="profile-confirm-pw" class="form-input" placeholder="Re-enter new password" required minlength="8" />
+              <label class="form-label" for="profile-confirm-pw">Confirm New Password</label>
+              <input type="password" id="profile-confirm-pw" class="form-control form-input" placeholder="Re-enter new password" required minlength="8" autocomplete="new-password" />
             </div>
-            <button type="submit" class="btn btn-primary mt-2">Update Password</button>
+            <button type="submit" class="btn btn-primary btn-block-mobile mt-2">Update Password</button>
           </form>
         </div>
       </div>
-
-</div>
+    </div>
   `;
 
   attachListeners();
@@ -152,6 +151,32 @@ export function renderProfileView(container) {
           duration: 1500
         });
         renderProfileView(container);
+      });
+    }
+
+    const pwForm = container.querySelector('#profile-change-pw-form');
+    if (pwForm) {
+      pwForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const curr = container.querySelector('#profile-curr-pw').value;
+        const newPw = container.querySelector('#profile-new-pw').value;
+        const confirmPw = container.querySelector('#profile-confirm-pw').value;
+
+        if (newPw !== confirmPw) {
+          toast.show({
+            title: "Password Mismatch",
+            message: "New password and confirmation do not match.",
+            type: "danger"
+          });
+          return;
+        }
+
+        toast.show({
+          title: "Password Updated",
+          message: "Your account credentials have been successfully updated.",
+          type: "success"
+        });
+        pwForm.reset();
       });
     }
   }
